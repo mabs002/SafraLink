@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1.0"
+  >
+
+  <title>
+    SafraLink — Tornar-se vendedor
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="css/style.css"
+  >
+
+</head>
+
+<body
+  data-private="true"
+  data-page="tornar-vendedor"
+>
+
+<div class="app">
+
+  <aside class="sidebar">
+
+    <a
+      class="brand"
+      href="inicio.html"
+    >
+
+      <div class="brand-mark">
+        🌱
+      </div>
+
+      <span>
+        SafraLink
+      </span>
+
+    </a>
+
+
+    <nav class="nav">
+
+      <a href="inicio.html">
+        <span class="nav-icon">⌂</span>
+        <span>Início</span>
+      </a>
+
+      <a href="produtos.html">
+        <span class="nav-icon">🧺</span>
+        <span>Produtos</span>
+      </a>
+
+      <a href="colheitas.html">
+        <span class="nav-icon">🌾</span>
+        <span>Colheitas</span>
+      </a>
+
+      <a
+        href="pedidos.html"
+        data-seller-only
+      >
+        <span class="nav-icon">📋</span>
+        <span>Pedidos</span>
+      </a>
+
+      <a
+        href="transporte.html"
+        data-seller-only
+      >
+        <span class="nav-icon">🚚</span>
+        <span>Transporte</span>
+      </a>
+
+      <a
+        href="sobras.html"
+        data-seller-only
+      >
+        <span class="nav-icon">♻</span>
+        <span>Sobras</span>
+      </a>
+
+    </nav>
+
+
+    <div class="sidebar-bottom">
+
+      <div class="user-mini">
+
+        <div
+          class="avatar"
+          data-initials
+        >
+          MA
+        </div>
+
+        <div>
+
+          <b data-user-name>
+            Maria
+          </b>
+
+          <small data-user-role>
+            Compradora
+          </small>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </aside>
+
+
+  <main class="main">
+
+    <div class="topbar">
+
+      <div class="page-title">
+
+        <h1>
+          Cadastro de vendedor
+        </h1>
+
+        <p>
+          Ative seu perfil de produtor e comece a anunciar.
+        </p>
+
+      </div>
+
+    </div>
+
+
+    <section class="card form-card">
+
+      <div class="notice">
+
+        Complete seus dados de identificação e do seu negócio.
+        Ao concluir, sua conta atual será transformada
+        imediatamente em perfil de vendedor/produtor.
+
+      </div>
+
+
+      <form id="seller-form">
+
+        <div class="form-grid">
+
+          <div class="field">
+            <label>Nome completo</label>
+            <input class="input" id="seller-account-name" required placeholder="Seu nome completo">
+          </div>
+
+          <div class="field">
+            <label>E-mail</label>
+            <input class="input" id="seller-account-email" type="email" readonly>
+          </div>
+
+          <div class="field">
+            <label>Tipo de cadastro</label>
+            <select class="select" id="seller-document-type" required>
+              <option value="">Selecione</option>
+              <option value="cpf">Pessoa física — CPF</option>
+              <option value="cnpj">Pessoa jurídica — CNPJ</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label>CPF ou CNPJ</label>
+            <input class="input" id="seller-document" required placeholder="Digite CPF ou CNPJ">
+          </div>
+
+          <div class="field">
+            <label>Data de nascimento / abertura</label>
+            <input class="input" id="seller-birth" type="date" required>
+          </div>
+
+          <div class="field">
+            <label>Telefone</label>
+            <input class="input" id="seller-phone" type="tel" required placeholder="(00) 00000-0000">
+          </div>
+
+          <div class="field">
+            <label>CEP</label>
+            <input class="input" id="seller-cep" required placeholder="00000-000">
+          </div>
+
+          <div class="field">
+            <label>Município</label>
+            <input class="input" id="seller-city" required placeholder="Cidade - UF">
+          </div>
+
+          <div class="field full">
+            <label>Endereço</label>
+            <input class="input" id="seller-address" required placeholder="Rua, número e complemento">
+          </div>
+
+          <div class="field">
+            <label>Nome do sítio, chácara ou negócio</label>
+            <input class="input" id="seller-name" required placeholder="Ex.: Sítio Boa Terra">
+          </div>
+
+          <div class="field">
+            <label>Tipo de produção</label>
+            <select class="select" id="seller-production" required>
+              <option value="">Selecione</option>
+              <option>Hortaliças</option>
+              <option>Frutas</option>
+              <option>Cereais</option>
+              <option>Legumes e raízes</option>
+              <option>Produção diversificada</option>
+              <option>Outro</option>
+            </select>
+          </div>
+
+          <div class="field full">
+            <label>Foto do documento de identificação</label>
+            <input class="input" id="seller-document-photo" type="file" accept="image/*,.pdf" required>
+            <small style="color:var(--muted)">Protótipo: o arquivo não será enviado nem armazenado no servidor.</small>
+          </div>
+
+          <div class="field full">
+            <label>Descrição da atividade</label>
+            <textarea class="textarea" id="seller-description" rows="4" required placeholder="Conte sobre sua produção e o que pretende vender..."></textarea>
+          </div>
+
+        </div>
+
+        <label style="display:flex;gap:9px;align-items:flex-start;margin-top:14px;font-size:13px">
+          <input id="seller-terms" type="checkbox" required style="margin-top:3px">
+          Declaro que as informações fornecidas são verdadeiras e autorizo seu uso para cadastro e identificação na plataforma.
+        </label>
+
+        <div class="form-actions">
+          <a class="btn btn-outline" href="inicio.html">Cancelar</a>
+          <button class="btn btn-primary" type="submit">Concluir cadastro de vendedor</button>
+        </div>
+
+      </form>
+
+    </section>
+
+  </main>
+
+</div>
+
+
+<script src="js/app.js"></script>
+
+</body>
+
+</html>

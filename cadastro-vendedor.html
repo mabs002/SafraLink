@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>SafraLink — Quero ser vendedor</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main class="auth-page">
+    <section class="auth">
+      <div class="auth-side">
+        <div class="brand"><div class="brand-mark">🌱</div><span>SafraLink</span></div>
+        <h1>Comece a vender na SafraLink.</h1>
+        <p>Cadastre seus dados de identificação e do seu negócio para criar sua conta de vendedor.</p>
+        <div class="leafs">🌾 🧺 🚚</div>
+      </div>
+      <div class="auth-form" style="max-height:100vh;overflow:auto">
+        <h2>Quero ser vendedor</h2>
+        <p>Preencha os dados necessários para identificação e cadastro do seu negócio.</p>
+        <div class="notice">Para este protótipo, a foto do documento é apenas registrada como arquivo selecionado. A validação real será feita posteriormente.</div>
+        <form id="seller-signup-form">
+          <div class="form-grid">
+            <div class="field"><label>Nome completo</label><input class="input" id="seller-signup-name" required placeholder="Seu nome completo"></div>
+            <div class="field"><label>E-mail</label><input class="input" id="seller-signup-email" type="email" required placeholder="seu@email.com"></div>
+            <div class="field"><label>Senha</label><input class="input" id="seller-signup-password" type="password" minlength="6" required placeholder="Crie uma senha"></div>
+            <div class="field"><label>Tipo de cadastro</label><select class="select" id="seller-document-type" required><option value="">Selecione</option><option value="cpf">Pessoa física — CPF</option><option value="cnpj">Pessoa jurídica — CNPJ</option></select></div>
+            <div class="field"><label>CPF ou CNPJ</label><input class="input" id="seller-document" required placeholder="Digite CPF ou CNPJ"></div>
+            <div class="field"><label>Data de nascimento / abertura</label><input class="input" id="seller-birth" type="date" required></div>
+            <div class="field"><label>Telefone</label><input class="input" id="seller-phone" type="tel" required placeholder="(00) 00000-0000"></div>
+            <div class="field"><label>CEP</label><input class="input" id="seller-cep" required placeholder="00000-000"></div>
+            <div class="field"><label>Endereço</label><input class="input" id="seller-address" required placeholder="Rua, número e complemento"></div>
+            <div class="field"><label>Município</label><input class="input" id="seller-city" required placeholder="Cidade - UF"></div>
+            <div class="field"><label>Nome do sítio, chácara ou negócio</label><input class="input" id="seller-farm" required placeholder="Ex.: Sítio Boa Terra"></div>
+            <div class="field"><label>Tipo de produção</label><select class="select" id="seller-production" required><option value="">Selecione</option><option>Hortaliças</option><option>Frutas</option><option>Cereais</option><option>Legumes e raízes</option><option>Produção diversificada</option><option>Outro</option></select></div>
+            <div class="field full"><label>Foto do documento de identificação</label><input class="input" id="seller-document-photo" type="file" accept="image/*,.pdf" required><small style="color:var(--muted)">Protótipo: o arquivo não será enviado nem armazenado no servidor.</small></div>
+            <div class="field full"><label>Descrição da atividade</label><textarea class="textarea" id="seller-description" rows="4" required placeholder="Conte sobre sua produção e o que pretende vender..."></textarea></div>
+          </div>
+          <label style="display:flex;gap:9px;align-items:flex-start;margin-top:14px;font-size:13px"><input id="seller-terms" type="checkbox" required style="margin-top:3px">Declaro que as informações fornecidas são verdadeiras e autorizo seu uso para cadastro e identificação na plataforma.</label>
+          <div class="form-actions">
+            <a class="btn btn-outline" href="index.html">Voltar</a>
+            <button class="btn btn-primary" type="submit">Criar conta de vendedor</button>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+  <script src="js/app.js"></script>
+</body>
+</html>

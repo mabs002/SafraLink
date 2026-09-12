@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1.0"
+  >
+
+  <title>
+    SafraLink — Cadastrar produto
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="css/style.css"
+  >
+
+</head>
+
+<body
+  data-private="true"
+  data-page="cadastro-produto"
+>
+
+<div class="app">
+
+  <aside class="sidebar">
+
+    <a
+      class="brand"
+      href="inicio.html"
+    >
+
+      <div class="brand-mark">
+        🌱
+      </div>
+
+      <span>
+        SafraLink
+      </span>
+
+    </a>
+
+
+    <nav class="nav">
+
+      <a href="inicio.html">
+        <span class="nav-icon">⌂</span>
+        <span>Início</span>
+      </a>
+
+
+      <a
+        href="produtos.html"
+        class="active"
+      >
+        <span class="nav-icon">🧺</span>
+        <span>Produtos</span>
+      </a>
+
+
+      <a href="colheitas.html">
+        <span class="nav-icon">🌾</span>
+        <span>Colheitas</span>
+      </a>
+
+
+      <a
+        href="pedidos.html"
+        data-seller-only
+      >
+        <span class="nav-icon">📋</span>
+        <span>Pedidos</span>
+      </a>
+
+
+      <a
+        href="transporte.html"
+        data-seller-only
+      >
+        <span class="nav-icon">🚚</span>
+        <span>Transporte</span>
+      </a>
+
+
+      <a
+        href="sobras.html"
+        data-seller-only
+      >
+        <span class="nav-icon">♻</span>
+        <span>Sobras</span>
+      </a>
+
+    </nav>
+
+  </aside>
+
+
+  <main class="main">
+
+    <div class="topbar">
+
+      <div class="page-title">
+
+        <h1>
+          Cadastrar produto
+        </h1>
+
+        <p>
+          Informe o que você tem disponível para comercialização.
+        </p>
+
+      </div>
+
+    </div>
+
+
+    <section class="card form-card">
+
+      <form id="product-form">
+
+        <div class="form-grid">
+
+          <div class="field">
+
+            <label>
+              Produto
+            </label>
+
+            <input
+              class="input"
+              id="p-name"
+              required
+              placeholder="Ex.: Tomate"
+            >
+
+          </div>
+
+
+          <div class="field">
+
+            <label>
+              Tipo
+            </label>
+
+            <select
+              class="select"
+              id="p-type"
+              required
+            >
+
+              <option value="">
+                Selecione
+              </option>
+
+              <option>
+                Fruta
+              </option>
+
+              <option>
+                Hortaliça
+              </option>
+
+              <option>
+                Cereal
+              </option>
+
+              <option>
+                Legume
+              </option>
+
+              <option>
+                Raiz
+              </option>
+
+            </select>
+
+          </div>
+
+
+          <div class="field">
+
+            <label>
+              Quantidade disponível
+            </label>
+
+            <input
+              class="input"
+              id="p-qty"
+              required
+              placeholder="Ex.: 100 kg"
+            >
+
+          </div>
+
+
+          <div class="field">
+
+            <label>
+              Preço
+            </label>
+
+            <input
+              class="input"
+              id="p-price"
+              required
+              placeholder="Ex.: R$ 5,00/kg"
+            >
+
+          </div>
+
+
+          <div class="field full">
+
+            <label>
+              Localização
+            </label>
+
+            <input
+              class="input"
+              id="p-location"
+              required
+              placeholder="Município - SP"
+            >
+
+          </div>
+
+
+          <div class="field full">
+
+            <label>
+              Foto do produto
+            </label>
+
+            <input
+              class="input"
+              id="p-photo"
+              type="file"
+              accept="image/*"
+            >
+
+            <small class="hint">
+              Adicione uma foto real do produto.
+            </small>
+
+            <div id="p-photo-preview" class="product-photo-upload-preview" hidden></div>
+
+          </div>
+
+
+          <div class="field full">
+
+            <label>
+              Descrição do produto
+            </label>
+
+            <textarea
+              class="input"
+              id="p-description"
+              rows="4"
+              placeholder="Conte sobre qualidade, cultivo, características e forma de entrega..."
+            ></textarea>
+
+          </div>
+
+
+          <div class="field">
+
+            <label>
+              Unidade de venda
+            </label>
+
+            <input
+              class="input"
+              id="p-unit"
+              placeholder="Ex.: kg, caixa, unidade"
+            >
+
+          </div>
+
+
+          <div class="field">
+
+            <label>
+              Pedido mínimo
+            </label>
+
+            <input
+              class="input"
+              id="p-min-order"
+              placeholder="Ex.: 10 kg"
+            >
+
+          </div>
+
+        </div>
+
+
+        <div class="form-actions">
+
+          <a
+            class="btn btn-outline"
+            href="produtos.html"
+          >
+            Cancelar
+          </a>
+
+          <button class="btn btn-primary">
+            Cadastrar produto
+          </button>
+
+        </div>
+
+      </form>
+
+    </section>
+
+  </main>
+
+</div>
+
+
+<script src="js/app.js"></script>
+
+</body>
+
+</html>

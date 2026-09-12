@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SafraLink | Acesso Administrativo</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body class="admin-auth-page">
+<main class="admin-auth-layout">
+  <section class="admin-auth-intro">
+    <div class="admin-brand admin-brand-light"><div class="admin-brand-mark">🌱</div><div><strong>SafraLink</strong><small>Administração</small></div></div>
+    <div class="admin-intro-content"><span>ÁREA RESTRITA</span><h1>Gestão da plataforma com segurança e simplicidade.</h1><p>O acesso administrativo é separado dos perfis de comprador e vendedor e não possui acesso às conversas.</p><div class="admin-intro-points"><div>✓ Gerenciar usuários</div><div>✓ Gerenciar produtos e pedidos</div><div>✓ Editar e excluir registros</div></div></div>
+  </section>
+  <section class="admin-auth-panel">
+    <div class="admin-login-card">
+      <div class="admin-login-icon">🔐</div><span class="admin-eyebrow">ACESSO ADMINISTRATIVO</span>
+      <h2>Entrar no painel</h2><p>Informe suas credenciais para continuar.</p>
+      <form id="admin-login-form">
+        <div class="admin-field"><label for="admin-email">E-mail</label><input id="admin-email" type="email" placeholder="seu e-mail administrativo" required autocomplete="username"></div>
+        <div class="admin-field"><label for="admin-password">Senha</label><input id="admin-password" type="password" placeholder="Digite sua senha" required autocomplete="current-password"></div>
+        <button id="admin-login-button" type="submit" class="admin-login-button">Entrar no painel <span>→</span></button>
+        <p id="admin-login-error" class="admin-login-error" hidden></p>
+      </form>
+      <a class="admin-back" href="index.html">← Voltar para o acesso principal</a>
+    </div>
+    <small class="admin-security-note">🔒 Acesso exclusivo da administração</small>
+  </section>
+</main>
+<script src="js/admin-auth.js"></script>
+</body>
+</html>

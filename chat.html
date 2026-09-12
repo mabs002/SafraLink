@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SafraLink — Chat</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/chat.css">
+
+<style id="chat-quero-vender-spacing">
+/* Ajuste pontual: separa "Quero vender" do ícone/item Chat. */
+.quero-vender {
+    margin-top: 10px !important;
+}
+</style>
+
+</head>
+<body data-private="true" data-page="chat">
+<div class="app">
+  <aside class="sidebar">
+    <a class="brand" href="inicio.html"><div class="brand-mark">🌱</div><span>SafraLink</span></a>
+    <nav class="nav">
+      <a href="inicio.html"><span class="nav-icon">⌂</span><span>Início</span></a>
+      <a href="produtos.html"><span class="nav-icon">🧺</span><span>Produtos</span></a>
+      <a href="colheitas.html"><span class="nav-icon">🌾</span><span>Colheitas</span></a>
+      <a href="pedidos.html" data-seller-only><span class="nav-icon">📋</span><span>Pedidos</span></a>
+      <a href="transporte.html" data-seller-only><span class="nav-icon">🚚</span><span>Transporte</span></a>
+      <a href="sobras.html" data-seller-only><span class="nav-icon">♻</span><span>Sobras</span></a>
+      <a href="chat.html" class="active"><span class="nav-icon chat-nav-icon">💬<span class="chat-notification-dot" aria-label="Nova mensagem" hidden></span></span><span>Chat</span></a>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <div class="user-mini">
+        <div class="avatar" id="sidebar-initials">U</div>
+        <div>
+          <b id="sidebar-name">Usuário</b>
+          <small id="sidebar-role">Comprador(a)</small>
+        </div>
+      </div>
+
+      <button class="btn btn-soft chat-logout" id="logout-btn" type="button">Sair</button>
+    </div>
+  </aside>
+
+  <main class="main chat-main">
+    <div class="topbar">
+      <div class="page-title"><h1>Chat</h1><p>Converse diretamente com compradores e vendedores.</p></div>
+      <button class="btn btn-primary" id="new-chat-btn" type="button">+ Novo produtor</button>
+    </div>
+
+    <section class="chat-layout card">
+      <aside class="chat-list">
+        <div class="chat-list-head">
+          <div><strong>Conversas</strong><span id="conversation-count">0</span></div>
+          <input class="input chat-search" id="chat-search" placeholder="Buscar conversa...">
+        </div>
+        <div id="conversation-list" class="conversation-list"></div>
+      </aside>
+
+      <section class="chat-window">
+        <div class="chat-empty" id="chat-empty">
+          <div class="chat-empty-icon">💬</div>
+          <strong>Suas conversas</strong>
+          <span>Escolha uma conversa da lista ou adicione um novo produtor.</span>
+          <button class="btn btn-primary" id="empty-new-chat" type="button">+ Novo produtor</button>
+        </div>
+        <div class="chat-active" id="chat-active" hidden>
+          <header class="chat-header">
+            <button class="chat-back" id="chat-back" type="button" aria-label="Voltar para conversas">←</button>
+            <div class="chat-person"><div class="avatar" id="contact-avatar">U</div><div><strong id="contact-name">Contato</strong><span id="contact-role">Comprador(a)</span></div></div>
+            
+          </header>
+          <div class="messages" id="messages"></div>
+          <form class="message-form" id="message-form">
+            <textarea class="textarea" id="message-input" rows="2" placeholder="Digite uma mensagem..." maxlength="2000" required></textarea>
+            <button class="btn btn-primary" type="submit">Enviar</button>
+          </form>
+        </div>
+      </section>
+    </section>
+  </main>
+</div>
+
+<div class="chat-modal" id="contact-modal" hidden>
+  <div class="chat-modal-backdrop" data-close-modal></div>
+  <section class="chat-modal-card">
+    <div class="section-head"><div><h2>Adicionar produtor</h2><p class="hint">Escolha um produtor para adicionar às suas conversas.</p></div><button class="icon-btn" id="close-modal" type="button" aria-label="Fechar">×</button></div>
+    <input class="input" id="contact-search" placeholder="Buscar produtor...">
+    <div id="contact-list" class="contact-list"></div>
+  </section>
+</div>
+<script>
+  // O Chat respeita o mesmo perfil já usado pelo restante do SafraLink.
+  // Comprador: não exibe funções exclusivas do vendedor.
+  // Vendedor: mantém as funções de vendedor.
+  (function () {
+    try {
+      const user = JSON.parse(localStorage.getItem('safralink_user') || 'null');
+      const isSeller = !!(user && (user.seller === true || user.tipo === 'vendedor' || user.role === 'seller' || user.perfil === 'vendedor'));
+      document.querySelectorAll('[data-seller-only]').forEach(el => {
+        el.style.display = isSeller ? '' : 'none';
+      });
+      document.querySelectorAll('[data-buyer-only]').forEach(el => {
+        el.style.display = isSeller ? 'none' : '';
+      });
+    } catch (e) {
+      document.querySelectorAll('[data-seller-only]').forEach(el => el.style.display = 'none');
+      document.querySelectorAll('[data-buyer-only]').forEach(el => el.style.display = '');
+    }
+  })();
+</script>
+<script src="js/chat.js"></script>
+</body>
+</html>

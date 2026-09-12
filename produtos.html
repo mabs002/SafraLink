@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>
+    SafraLink — Produtos
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="css/style.css"
+  >
+
+</head>
+
+
+<body
+  data-private="true"
+  data-page="produtos"
+>
+
+<div class="app">
+
+
+  <!-- =================================================
+       MENU LATERAL
+       ================================================= -->
+
+  <aside class="sidebar">
+
+
+    <a
+      class="brand"
+      href="inicio.html"
+    >
+
+      <div class="brand-mark">
+        🌱
+      </div>
+
+      <span>
+        SafraLink
+      </span>
+
+    </a>
+
+
+    <nav class="nav">
+
+
+      <a
+        href="inicio.html"
+        data-page="inicio"
+      >
+
+        <span class="nav-icon">
+          ⌂
+        </span>
+
+        <span>
+          Início
+        </span>
+
+      </a>
+
+
+      <a
+        href="produtos.html"
+        data-page="produtos"
+      >
+
+        <span class="nav-icon">
+          🧺
+        </span>
+
+        <span>
+          Produtos
+        </span>
+
+      </a>
+
+
+      <a
+        href="colheitas.html"
+        data-page="colheitas"
+      >
+
+        <span class="nav-icon">
+          🌾
+        </span>
+
+        <span>
+          Colheitas
+        </span>
+
+      </a>
+
+
+      <a
+        href="pedidos.html"
+        data-page="pedidos"
+        data-seller-only
+      >
+
+        <span class="nav-icon">
+          📋
+        </span>
+
+        <span>
+          Pedidos
+        </span>
+
+      </a>
+
+
+      <a
+        href="transporte.html"
+        data-page="transporte"
+        data-seller-only
+      >
+
+        <span class="nav-icon">
+          🚚
+        </span>
+
+        <span>
+          Transporte
+        </span>
+
+      </a>
+
+
+      <a
+        href="sobras.html"
+        data-page="sobras"
+        data-seller-only
+      >
+
+        <span class="nav-icon">
+          ♻
+        </span>
+
+        <span>
+          Sobras
+        </span>
+
+      </a>
+
+
+
+
+      <a href="chat.html" data-page="chat">
+        <span class="nav-icon chat-nav-icon">💬<span class="chat-notification-dot" aria-label="Nova mensagem" hidden></span></span>
+        <span>Chat</span>
+      </a>
+
+    </nav>
+
+
+    <!-- =================================================
+         USUÁRIO
+         ================================================= -->
+
+    <div class="sidebar-bottom">
+      <div class="user-mini">
+
+
+        <div
+          class="avatar"
+          data-initials
+        >
+          MA
+        </div>
+
+
+        <div>
+
+          <b data-user-name>
+            Maria
+          </b>
+
+          <small data-user-role>
+            Compradora
+          </small>
+
+        </div>
+
+
+      </div>
+
+    </div>
+
+
+  </aside>
+
+
+  <!-- =================================================
+       CONTEÚDO
+       ================================================= -->
+
+  <main class="main">
+
+
+    <div class="topbar">
+
+
+      <div class="page-title">
+
+        <h1>
+          Produtos
+        </h1>
+
+        <p>
+          Produtos disponíveis para compra na região.
+        </p>
+
+      </div>
+
+
+      <!-- Só vendedor vê este botão -->
+
+      <a
+        class="btn btn-primary"
+        href="cadastro-produto.html"
+        data-seller-only
+      >
+
+        + Cadastrar produto
+
+      </a>
+
+
+    </div>
+
+
+    <!-- =================================================
+         BUSCA
+         ================================================= -->
+
+    <div class="searchbar">
+
+
+      <div class="input-wrap">
+
+        <span>
+          ⌕
+        </span>
+
+
+        <input
+          class="input"
+          id="product-search"
+          placeholder="Buscar por produto, tipo, produtor ou localização..."
+        >
+
+      </div>
+
+
+      <select
+        class="select"
+        id="product-type-filter"
+        style="max-width:180px"
+      >
+
+        <option value="">
+          Todos os tipos
+        </option>
+
+        <option value="Fruta">
+          Frutas
+        </option>
+
+        <option value="Hortaliça">
+          Hortaliças
+        </option>
+
+        <option value="Cereal">
+          Cereais
+        </option>
+
+        <option value="Legume">
+          Legumes
+        </option>
+
+        <option value="Raiz">
+          Raízes
+        </option>
+
+      </select>
+
+
+    </div>
+
+
+    <!-- =================================================
+         PRODUTOS
+         ================================================= -->
+
+    <div
+      id="product-list"
+      class="product-grid"
+    ></div>
+
+
+  </main>
+
+</div>
+
+
+
+<!-- Lista de interesses do comprador -->
+<div class="interest-drawer" id="interest-drawer" aria-hidden="true">
+  <button class="interest-drawer-toggle" id="interest-drawer-toggle" type="button" aria-label="Abrir lista de interesses">
+    <span>♡</span><i>&lt;</i>
+  </button>
+  <aside class="interest-drawer-panel" aria-label="Minha lista de interesses">
+    <div class="interest-drawer-head">
+      <div>
+        <span class="interest-kicker">Comprador</span>
+        <h3>Meus interesses</h3>
+        <p>Produtos que você quer acompanhar.</p>
+      </div>
+      <button type="button" id="interest-drawer-close" class="interest-drawer-close" aria-label="Fechar">×</button>
+    </div>
+    <div class="interest-drawer-count"><span id="interest-drawer-count">0</span> produto(s)</div>
+    <div id="interest-drawer-list" class="interest-drawer-list"></div>
+  </aside>
+</div>
+
+<!-- Modal de detalhes do produto -->
+<div class="product-detail-modal" id="product-detail-modal" hidden>
+  <div class="product-detail-backdrop" data-close-product-modal></div>
+  <section class="product-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="product-detail-title">
+    <button class="product-detail-close" type="button" data-close-product-modal aria-label="Fechar">×</button>
+    <div id="product-detail-content"></div>
+  </section>
+</div>
+
+<script src="js/app.js"></script>
+
+</body>
+
+</html>

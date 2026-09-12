@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1.0"
+  >
+
+  <title>
+    SafraLink — Início
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="css/style.css"
+  >
+
+</head>
+
+<body
+  data-private="true"
+  data-page="inicio"
+>
+
+<div class="app">
+
+  <aside class="sidebar">
+
+    <a
+      class="brand"
+      href="inicio.html"
+    >
+
+      <div class="brand-mark">
+        🌱
+      </div>
+
+      <span>
+        SafraLink
+      </span>
+
+    </a>
+
+
+    <nav class="nav">
+
+      <a
+        href="inicio.html"
+        data-page="inicio"
+      >
+        <span class="nav-icon">⌂</span>
+        <span>Início</span>
+      </a>
+
+
+      <a
+        href="produtos.html"
+        data-page="produtos"
+      >
+        <span class="nav-icon">🧺</span>
+        <span>Produtos</span>
+      </a>
+
+
+      <a
+        href="colheitas.html"
+        data-page="colheitas"
+      >
+        <span class="nav-icon">🌾</span>
+        <span>Colheitas</span>
+      </a>
+
+
+      <a
+        href="pedidos.html"
+        data-page="pedidos"
+        data-seller-only
+      >
+        <span class="nav-icon">📋</span>
+        <span>Pedidos</span>
+      </a>
+
+
+      <a
+        href="transporte.html"
+        data-page="transporte"
+        data-seller-only
+      >
+        <span class="nav-icon">🚚</span>
+        <span>Transporte</span>
+      </a>
+
+
+      <a
+        href="sobras.html"
+        data-page="sobras"
+        data-seller-only
+      >
+        <span class="nav-icon">♻</span>
+        <span>Sobras</span>
+      </a>
+
+
+
+      <a href="chat.html" data-page="chat">
+        <span class="nav-icon chat-nav-icon">💬<span class="chat-notification-dot" aria-label="Nova mensagem" hidden></span></span>
+        <span>Chat</span>
+      </a>
+
+    </nav>
+
+
+    <div class="sidebar-bottom">
+      <div class="user-mini">
+
+        <div
+          class="avatar"
+          data-initials
+        >
+          MA
+        </div>
+
+
+        <div>
+
+          <b data-user-name>
+            Maria
+          </b>
+
+          <small data-user-role>
+            Compradora
+          </small>
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </aside>
+
+
+  <main class="main">
+
+    <div class="topbar">
+
+      <div class="page-title">
+
+        <h1>
+          Olá,
+          <span data-user-name>
+            Maria
+          </span>
+          🌱
+        </h1>
+
+        <p>
+          Veja o que está acontecendo na sua região.
+        </p>
+
+      </div>
+
+
+      <div class="top-actions">
+
+        <button class="icon-btn">
+          🔔
+        </button>
+
+        <a
+          class="btn btn-outline"
+          href="perfil.html"
+        >
+          Meu perfil
+        </a>
+
+      </div>
+
+    </div>
+
+
+    <section class="hero">
+
+      <div>
+
+        <h2>
+          Encontre produtos da região e acompanhe
+          as próximas colheitas.
+        </h2>
+
+        <p>
+          O SafraLink aproxima quem produz de quem
+          compra e ajuda a planejar pedidos e transporte.
+        </p>
+
+        <a
+          class="btn btn-primary"
+          href="produtos.html"
+        >
+          Explorar produtos →
+        </a>
+
+      </div>
+
+
+      <div class="hero-art">
+        🌾
+      </div>
+
+    </section>
+
+
+    <div
+      class="grid grid-4"
+      style="margin-bottom:20px"
+    >
+
+      <div class="card stat-card">
+
+        <div>
+
+          <div class="stat-label">
+            Produtos disponíveis
+          </div>
+
+          <div class="stat-number">
+            126
+          </div>
+
+        </div>
+
+        <div class="stat-icon">
+          🧺
+        </div>
+
+      </div>
+
+
+      <div class="card stat-card">
+
+        <div>
+
+          <div class="stat-label">
+            Colheitas previstas
+          </div>
+
+          <div class="stat-number">
+            18
+          </div>
+
+        </div>
+
+        <div class="stat-icon">
+          🌾
+        </div>
+
+      </div>
+
+
+      <!-- Somente vendedor -->
+      <div
+        class="card stat-card"
+        data-seller-only
+      >
+
+        <div>
+
+          <div class="stat-label">
+            Pedidos em andamento
+          </div>
+
+          <div class="stat-number">
+            7
+          </div>
+
+        </div>
+
+        <div class="stat-icon">
+          📋
+        </div>
+
+      </div>
+
+
+      <!-- Somente vendedor -->
+      <div
+        class="card stat-card"
+        data-seller-only
+      >
+
+        <div>
+
+          <div class="stat-label">
+            Kg destinados
+          </div>
+
+          <div class="stat-number">
+            342
+          </div>
+
+        </div>
+
+        <div class="stat-icon">
+          ♻
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <section class="buyer-message-widget" id="buyer-message-widget" hidden aria-label="Mensagens novas"></section>
+
+    <section class="card">
+
+      <div class="section-head">
+
+        <h2>
+          Produtos em destaque
+        </h2>
+
+        <a
+          class="btn btn-soft"
+          href="produtos.html"
+        >
+          Ver todos
+        </a>
+
+      </div>
+
+
+      <div
+        id="product-list"
+        class="product-grid"
+      ></div>
+
+    </section>
+
+  </main>
+
+</div>
+
+
+
+<!-- Modal de detalhes do produto também disponível na tela inicial -->
+<div class="product-detail-modal" id="product-detail-modal" hidden>
+  <div class="product-detail-backdrop" data-close-product-modal></div>
+  <section class="product-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="product-detail-title">
+    <button class="product-detail-close" type="button" data-close-product-modal aria-label="Fechar">×</button>
+    <div id="product-detail-content"></div>
+  </section>
+</div>
+
+<script src="js/app.js"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1.0"
+  >
+
+  <title>
+    SafraLink — Pedidos
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="css/style.css"
+  >
+
+</head>
+
+<body
+  data-private="true"
+  data-page="pedidos"
+>
+
+<div class="app">
+
+  <aside class="sidebar">
+
+    <a
+      class="brand"
+      href="inicio.html"
+    >
+
+      <div class="brand-mark">
+        🌱
+      </div>
+
+      <span>
+        SafraLink
+      </span>
+
+    </a>
+
+
+    <nav class="nav">
+
+      <a href="inicio.html">
+        <span class="nav-icon">⌂</span>
+        <span>Início</span>
+      </a>
+
+      <a href="produtos.html">
+        <span class="nav-icon">🧺</span>
+        <span>Produtos</span>
+      </a>
+
+      <a href="colheitas.html">
+        <span class="nav-icon">🌾</span>
+        <span>Colheitas</span>
+      </a>
+
+      <a
+        href="pedidos.html"
+        class="active"
+      >
+        <span class="nav-icon">📋</span>
+        <span>Pedidos</span>
+      </a>
+
+      <a
+        href="transporte.html"
+        data-seller-only
+      >
+        <span class="nav-icon">🚚</span>
+        <span>Transporte</span>
+      </a>
+
+      <a
+        href="sobras.html"
+        data-seller-only
+      >
+        <span class="nav-icon">♻</span>
+        <span>Sobras</span>
+      </a>
+
+
+
+      <a href="chat.html" data-page="chat">
+        <span class="nav-icon chat-nav-icon">💬<span class="chat-notification-dot" aria-label="Nova mensagem" hidden></span></span>
+        <span>Chat</span>
+      </a>
+
+    </nav>
+
+  </aside>
+
+
+  <main class="main">
+
+    <div class="topbar">
+
+      <div class="page-title">
+
+        <h1>
+          Pedidos e negociações
+        </h1>
+
+        <p>
+          Acompanhe solicitações de compra e o andamento dos pedidos.
+        </p>
+
+      </div>
+
+    </div>
+
+
+    <section class="card">
+
+      <div class="table-wrap">
+
+        <table class="table">
+
+          <thead>
+
+            <tr>
+
+              <th>
+                Produto
+              </th>
+
+              <th>
+                Quantidade
+              </th>
+
+              <th>
+                Envolvidos
+              </th>
+
+              <th>
+                Data
+              </th>
+
+              <th>
+                Status
+              </th>
+
+              <th></th>
+
+            </tr>
+
+          </thead>
+
+
+          <tbody id="orders-list">
+
+            <tr>
+
+              <td>
+
+                <b>
+                  Tomate
+                </b>
+
+                <br>
+
+                <span class="hint">
+                  Pedido #SL1024
+                </span>
+
+              </td>
+
+              <td>
+                50 kg
+              </td>
+
+              <td>
+                Mercado Central → Sítio Boa Terra
+              </td>
+
+              <td>
+                28/08
+              </td>
+
+              <td>
+
+                <span class="status yellow">
+                  Negociação
+                </span>
+
+              </td>
+
+              <td>
+
+                <button class="btn btn-soft">
+                  Detalhes
+                </button>
+
+              </td>
+
+            </tr>
+
+
+            <tr>
+
+              <td>
+
+                <b>
+                  Alface
+                </b>
+
+                <br>
+
+                <span class="hint">
+                  Pedido #SL1021
+                </span>
+
+              </td>
+
+              <td>
+                30 un.
+              </td>
+
+              <td>
+                Restaurante da Praça → Horta da Ana
+              </td>
+
+              <td>
+                27/08
+              </td>
+
+              <td>
+
+                <span class="status green">
+                  Confirmado
+                </span>
+
+              </td>
+
+              <td>
+
+                <button class="btn btn-soft">
+                  Detalhes
+                </button>
+
+              </td>
+
+            </tr>
+
+
+            <tr>
+
+              <td>
+
+                <b>
+                  Mandioca
+                </b>
+
+                <br>
+
+                <span class="hint">
+                  Pedido #SL1017
+                </span>
+
+              </td>
+
+              <td>
+                100 kg
+              </td>
+
+              <td>
+                Feira Municipal → Família Souza
+              </td>
+
+              <td>
+                26/08
+              </td>
+
+              <td>
+
+                <span class="status gray">
+                  Finalizado
+                </span>
+
+              </td>
+
+              <td>
+
+                <button class="btn btn-soft">
+                  Detalhes
+                </button>
+
+              </td>
+
+            </tr>
+
+          </tbody>
+
+        </table>
+
+      </div>
+
+    </section>
+
+  </main>
+
+</div>
+
+
+<script src="js/app.js"></script>
+
+</body>
+
+</html>

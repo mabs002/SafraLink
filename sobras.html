@@ -1,0 +1,657 @@
+```html
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1.0"
+  >
+
+  <title>
+    SafraLink — Sobras
+  </title>
+
+  <!-- CSS ORIGINAL DO PROJETO -->
+  <link
+    rel="stylesheet"
+    href="css/style.css"
+  >
+
+</head>
+
+
+<body
+  data-private="true"
+  data-page="sobras"
+>
+
+
+<div class="app">
+
+
+  <!-- ==================================================
+       MENU LATERAL
+       ================================================== -->
+
+  <aside class="sidebar">
+
+
+    <!-- LOGO -->
+
+    <a
+      class="brand"
+      href="inicio.html"
+    >
+
+      <div class="brand-mark">
+        🌱
+      </div>
+
+      <span>
+        SafraLink
+      </span>
+
+    </a>
+
+
+    <!-- MENU PRINCIPAL -->
+
+    <nav class="nav">
+
+
+      <a href="inicio.html">
+
+        <span class="nav-icon">
+          ⌂
+        </span>
+
+        <span>
+          Início
+        </span>
+
+      </a>
+
+
+      <a href="produtos.html">
+
+        <span class="nav-icon">
+          🧺
+        </span>
+
+        <span>
+          Produtos
+        </span>
+
+      </a>
+
+
+      <a href="colheitas.html">
+
+        <span class="nav-icon">
+          🌾
+        </span>
+
+        <span>
+          Colheitas
+        </span>
+
+      </a>
+
+
+      <!--
+        Essas páginas são exclusivas
+        do vendedor.
+      -->
+
+      <a
+        href="pedidos.html"
+        data-seller-only
+      >
+
+        <span class="nav-icon">
+          📋
+        </span>
+
+        <span>
+          Pedidos
+        </span>
+
+      </a>
+
+
+      <a
+        href="transporte.html"
+        data-seller-only
+      >
+
+        <span class="nav-icon">
+          🚚
+        </span>
+
+        <span>
+          Transporte
+        </span>
+
+      </a>
+
+
+      <!-- PÁGINA ATUAL -->
+
+      <a
+        href="sobras.html"
+        class="active"
+        data-seller-only
+      >
+
+        <span class="nav-icon">
+          ♻
+        </span>
+
+        <span>
+          Sobras
+        </span>
+
+      </a>
+
+
+
+
+      <a href="chat.html" data-page="chat">
+        <span class="nav-icon chat-nav-icon">💬<span class="chat-notification-dot" aria-label="Nova mensagem" hidden></span></span>
+        <span>Chat</span>
+      </a>
+
+    </nav>
+
+
+    <!-- ==================================================
+         ÁREA DO USUÁRIO
+         ================================================== -->
+
+    <div class="sidebar-bottom">
+
+
+      <!--
+        Esse botão só aparece para compradores.
+        Para vendedores ele fica oculto pelo app.js.
+      -->
+      <!--
+        Informações do usuário.
+        Os valores são preenchidos automaticamente
+        pelo JavaScript.
+      -->
+
+      <div class="user-mini">
+
+
+        <div
+          class="avatar"
+          data-initials
+        >
+          MA
+        </div>
+
+
+        <div>
+
+          <b data-user-name>
+            Maria
+          </b>
+
+
+          <small data-user-role>
+            Vendedora / Produtora
+          </small>
+
+        </div>
+
+
+      </div>
+
+
+    </div>
+
+
+  </aside>
+
+
+  <!-- ==================================================
+       CONTEÚDO PRINCIPAL
+       ================================================== -->
+
+  <main class="main">
+
+
+    <!-- CABEÇALHO -->
+
+    <div class="topbar">
+
+
+      <div class="page-title">
+
+        <h1>
+          Sobras e desperdícios
+        </h1>
+
+        <p>
+          Registre o que não foi comercializado e qual foi sua destinação.
+        </p>
+
+      </div>
+
+
+    </div>
+
+
+    <!-- ==================================================
+         CARDS DE ESTATÍSTICAS
+         ================================================== -->
+
+    <div
+      class="grid grid-3"
+      style="margin-bottom:18px"
+    >
+
+
+      <!-- TOTAL -->
+
+      <div class="card stat-card">
+
+        <div>
+
+          <div class="stat-label">
+            Total de sobras
+          </div>
+
+          <div class="stat-number">
+            342 kg
+          </div>
+
+        </div>
+
+        <div class="stat-icon">
+          ♻
+        </div>
+
+      </div>
+
+
+      <!-- DOAÇÕES -->
+
+      <div class="card stat-card">
+
+        <div>
+
+          <div class="stat-label">
+            Doações
+          </div>
+
+          <div class="stat-number">
+            210 kg
+          </div>
+
+        </div>
+
+        <div class="stat-icon">
+          🤝
+        </div>
+
+      </div>
+
+
+      <!-- DESCARTES -->
+
+      <div class="card stat-card">
+
+        <div>
+
+          <div class="stat-label">
+            Descartes
+          </div>
+
+          <div class="stat-number">
+            48 kg
+          </div>
+
+        </div>
+
+        <div class="stat-icon">
+          🗑
+        </div>
+
+      </div>
+
+
+    </div>
+
+
+    <!-- ==================================================
+         REGISTROS RECENTES
+         ================================================== -->
+
+    <section
+      class="card"
+      style="margin-bottom:18px"
+    >
+
+
+      <div class="section-head">
+
+        <h2>
+          Registros recentes
+        </h2>
+
+      </div>
+
+
+      <div class="table-wrap">
+
+
+        <table class="table">
+
+
+          <thead>
+
+            <tr>
+
+              <th>
+                Produto
+              </th>
+
+              <th>
+                Quantidade
+              </th>
+
+              <th>
+                Destino
+              </th>
+
+              <th>
+                Data
+              </th>
+
+            </tr>
+
+          </thead>
+
+
+          <tbody id="leftover-list">
+
+
+            <!-- ==========================================
+                 SOBRA DE EXEMPLO 1
+                 ========================================== -->
+
+            <tr>
+
+              <td>
+                Alface
+              </td>
+
+              <td>
+                25 kg
+              </td>
+
+              <td>
+
+                <span class="status green">
+                  Doação
+                </span>
+
+              </td>
+
+              <td>
+                28/08/2026
+              </td>
+
+            </tr>
+
+
+            <!-- ==========================================
+                 SOBRA DE EXEMPLO 2
+                 ========================================== -->
+
+            <tr>
+
+              <td>
+                Tomate
+              </td>
+
+              <td>
+                18 kg
+              </td>
+
+              <td>
+
+                <span class="status gray">
+                  Consumo
+                </span>
+
+              </td>
+
+              <td>
+                27/08/2026
+              </td>
+
+            </tr>
+
+
+            <!-- ==========================================
+                 SOBRA DE EXEMPLO 3
+                 ========================================== -->
+
+            <tr>
+
+              <td>
+                Morango
+              </td>
+
+              <td>
+                5 kg
+              </td>
+
+              <td>
+
+                <span class="status red">
+                  Descarte
+                </span>
+
+              </td>
+
+              <td>
+                26/08/2026
+              </td>
+
+            </tr>
+
+
+          </tbody>
+
+
+        </table>
+
+
+      </div>
+
+
+    </section>
+
+
+    <!-- ==================================================
+         FORMULÁRIO DE CADASTRO
+         ================================================== -->
+
+    <section
+      class="card form-card"
+      data-seller-only
+    >
+
+
+      <div class="section-head">
+
+        <h2>
+          Registrar uma sobra
+        </h2>
+
+      </div>
+
+
+      <form id="leftover-form">
+
+
+        <div class="form-grid">
+
+
+          <!-- PRODUTO -->
+
+          <div class="field">
+
+            <label>
+              Produto
+            </label>
+
+            <input
+              class="input"
+              required
+              placeholder="Ex.: Tomate"
+            >
+
+          </div>
+
+
+          <!-- QUANTIDADE -->
+
+          <div class="field">
+
+            <label>
+              Quantidade que sobrou
+            </label>
+
+            <input
+              class="input"
+              required
+              placeholder="Ex.: 15 kg"
+            >
+
+          </div>
+
+
+          <!-- DESTINO -->
+
+          <div class="field">
+
+            <label>
+              Destino da sobra
+            </label>
+
+            <select
+              class="select"
+              required
+            >
+
+              <option value="">
+                Selecione
+              </option>
+
+              <option value="Doação">
+                Doação
+              </option>
+
+              <option value="Consumo">
+                Consumo
+              </option>
+
+              <option value="Descarte">
+                Descarte
+              </option>
+
+            </select>
+
+          </div>
+
+
+          <!-- DATA -->
+
+          <div class="field">
+
+            <label>
+              Data
+            </label>
+
+
+            <!--
+              IMPORTANTE:
+
+              O input type="date" necessariamente
+              trabalha internamente com:
+
+              AAAA-MM-DD
+
+              Exemplo:
+              2026-08-30
+
+              Porém o JavaScript converte esse
+              valor para:
+
+              30/08/2026
+
+              antes de mostrar na tabela.
+            -->
+
+            <input
+              class="input"
+              type="date"
+              required
+            >
+
+          </div>
+
+
+        </div>
+
+
+        <!-- BOTÃO -->
+
+        <div class="form-actions">
+
+
+          <button
+            class="btn btn-primary"
+            type="submit"
+          >
+
+            Registrar sobra
+
+          </button>
+
+
+        </div>
+
+
+      </form>
+
+
+    </section>
+
+
+  </main>
+
+
+</div>
+
+
+<!-- ====================================================
+     JAVASCRIPT
+     ==================================================== -->
+
+<script src="js/app.js"></script>
+
+
+</body>
+
+</html>
+```

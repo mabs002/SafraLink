@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>SafraLink — Detalhes do pedido</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .order-detail-page{max-width:900px}
+    .order-detail-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:22px}
+    .order-detail-head h1{margin-bottom:6px}
+    .order-detail-card{background:#fff;border:1px solid var(--border);border-radius:18px;padding:24px;box-shadow:0 8px 25px rgba(38,52,42,.06)}
+    .order-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:20px}
+    .order-detail-item{border:1px solid var(--border);border-radius:14px;padding:16px;background:#fbfcfa}
+    .order-detail-item span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px;font-weight:700}
+    .order-detail-item strong{font-size:16px;color:var(--green-900)}
+    .order-detail-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:24px}
+    .order-detail-error{text-align:center;padding:35px}
+    @media(max-width:650px){.order-detail-grid{grid-template-columns:1fr}.order-detail-head{flex-direction:column}.order-detail-card{padding:18px}}
+  </style>
+</head>
+<body data-private="true" data-page="pedidos">
+<div class="app">
+  <aside class="sidebar">
+    <a class="brand" href="inicio.html"><div class="brand-mark">🌱</div><span>SafraLink</span></a>
+    <nav class="nav">
+      <a href="inicio.html"><span class="nav-icon">⌂</span><span>Início</span></a>
+      <a href="produtos.html"><span class="nav-icon">🧺</span><span>Produtos</span></a>
+      <a href="colheitas.html"><span class="nav-icon">🌾</span><span>Colheitas</span></a>
+      <a href="pedidos.html" class="active" data-seller-only><span class="nav-icon">📋</span><span>Pedidos</span></a>
+      <a href="transporte.html" data-seller-only><span class="nav-icon">🚚</span><span>Transporte</span></a>
+      <a href="sobras.html" data-seller-only><span class="nav-icon">♻</span><span>Sobras</span></a>
+      <a href="chat.html" data-page="chat"><span class="nav-icon chat-nav-icon">💬<span class="chat-notification-dot" aria-label="Nova mensagem" hidden></span></span><span>Chat</span></a>
+    </nav>
+    <div class="sidebar-bottom">
+      <div class="user-mini"><div class="avatar" data-initials>U</div><div><strong data-user-name>Usuário</strong><span data-user-role>Compradora</span></div></div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="order-detail-page">
+      <div class="order-detail-head">
+        <div class="page-title">
+          <h1>Detalhes do pedido</h1>
+          <p>Confira as informações da solicitação de compra.</p>
+        </div>
+        <a class="btn btn-soft" href="pedidos.html">← Voltar aos pedidos</a>
+      </div>
+
+      <section class="order-detail-card" id="order-detail-content">
+        <p class="hint">Carregando pedido...</p>
+      </section>
+    </div>
+  </main>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+(function(){
+  'use strict';
+  const content = document.querySelector('#order-detail-content');
+  const user = typeof getUser === 'function' ? getUser() : null;
+
+  function escapeHTML(value){
+    const div=document.createElement('div');
+    div.textContent=String(value == null ? '' : value);
+    return div.innerHTML;
+  }
+
+  function getOrders(){
+    try { return JSON.parse(localStorage.getItem('safralink_orders') || '[]'); }
+    catch(_) { return []; }
+  }
+
+  if(!user){
+    window.location.href='inicio.html';
+    return;
+  }
+
+  const id = new URLSearchParams(window.location.search).get('id');
+  const order = getOrders().find(item => String(item.id) === String(id) && (user.seller ? item.sellerEmail === user.email : item.buyerEmail === user.email));
+
+  if(!order){
+    content.innerHTML='<div class="order-detail-error"><h3>Pedido não encontrado</h3><p class="hint">Este pedido não existe ou não pertence a você.</p><div class="order-detail-actions" style="justify-content:center"><a class="btn btn-soft" href="pedidos.html">Voltar aos pedidos</a></div></div>';
+    return;
+  }
+
+  const delivery = order.deliveryMethod || order.delivery || order.meioEntrega || 'A combinar';
+  const buyerEmail = order.buyerEmail || '';
+  const orderNumber = 'SL' + String(order.id).slice(-4);
+
+  content.innerHTML = `
+    <div>
+      <span class="hint">Pedido #${escapeHTML(orderNumber)}</span>
+      <h2 style="margin:5px 0 0">${escapeHTML(order.product || 'Pedido')}</h2>
+      <p class="hint" style="margin-top:6px">${escapeHTML(order.date || '')}</p>
+    </div>
+    <div class="order-detail-grid">
+      <div class="order-detail-item"><span>Comprador</span><strong>${escapeHTML(order.buyer || 'Não informado')}</strong></div>
+      <div class="order-detail-item"><span>Status</span><strong>${escapeHTML(order.status || 'Negociação')}</strong></div>
+      <div class="order-detail-item"><span>Quantidade</span><strong>${escapeHTML(order.quantity || 'Não informado')}</strong></div>
+      <div class="order-detail-item"><span>Meio de entrega</span><strong>${escapeHTML(delivery)}</strong></div>
+      <div class="order-detail-item"><span>Vendedor</span><strong>${escapeHTML(order.seller || user.name || 'Não informado')}</strong></div>
+      <div class="order-detail-item"><span>Produto</span><strong>${escapeHTML(order.product || 'Não informado')}</strong></div>
+    </div>
+    <div class="order-detail-actions">
+      ${user.seller && buyerEmail ? `<a class="btn btn-primary" href="chat.html?email=${encodeURIComponent(buyerEmail)}">💬 Falar com comprador</a>` : ''}
+      ${!user.seller ? `<button type="button" class="btn btn-primary" id="edit-order-detail">✏️ Editar pedido</button>` : ''}
+      <a class="btn btn-soft" href="pedidos.html">Voltar aos pedidos</a>
+    </div>`;
+  const editButton = document.querySelector('#edit-order-detail');
+  if (editButton) {
+    editButton.onclick = () => {
+      if (typeof openOrderEdit === 'function') {
+        openOrderEdit(order.id);
+      } else {
+        window.location.href = 'pedidos.html';
+      }
+    };
+  }
+})();
+</script>
+</body>
+</html>

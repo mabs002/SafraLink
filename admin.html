@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SafraLink | Painel Administrativo</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body class="admin-page" data-private="true">
+<div class="admin-shell">
+  <aside class="admin-sidebar">
+    <div class="admin-brand">
+      <div class="admin-brand-mark">🌱</div>
+      <div><strong>SafraLink</strong><small>Administração</small></div>
+    </div>
+    <div class="admin-side-label">MENU ADMINISTRATIVO</div>
+    <nav class="admin-nav">
+      <a class="admin-nav-item active" href="admin.html"><span class="admin-nav-icon">▦</span><span>Painel geral</span></a>
+    </nav>
+    <div class="admin-side-footer">
+      <div class="admin-privacy"><span>🔒</span><div><strong>Acesso restrito</strong><small>Área exclusiva da administração</small></div></div>
+      <button id="admin-logout" class="admin-logout">Sair da administração</button>
+    </div>
+  </aside>
+
+  <main class="admin-main">
+    <header class="admin-topbar">
+      <div>
+        <span class="admin-eyebrow">PAINEL ADMINISTRATIVO</span>
+        <h1>Visão geral</h1>
+        <p>Gerencie os dados da plataforma em um único lugar.</p>
+      </div>
+      <div class="admin-user-pill"><span class="admin-avatar">A</span><div><strong>Administradora</strong><small>Área administrativa</small></div></div>
+    </header>
+
+    <section class="admin-welcome">
+      <div><span class="admin-welcome-tag">CONTROLE DA PLATAFORMA</span><h2>Olá, administradora.</h2><p>Aqui você pode consultar, editar e excluir registros. O Chat não faz parte desta área.</p></div>
+      <div class="admin-welcome-icon">🛡️</div>
+    </section>
+
+    <section class="admin-stats" id="admin-stats"></section>
+
+    <section class="admin-content-card">
+      <div class="admin-content-head">
+        <div><h2>Gerenciamento</h2><p>Selecione uma categoria para visualizar os registros.</p></div>
+      </div>
+      <div class="admin-tabs" id="admin-tabs"></div>
+      <section id="admin-panels"></section>
+    </section>
+  </main>
+</div>
+<script src="js/admin.js"></script>
+</body>
+</html>
