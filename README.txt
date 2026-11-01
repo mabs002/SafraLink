@@ -14,4 +14,4 @@ Estrutura:
 - css/style.css: estilos do projeto
 - js/app.js: navegação, dados de exemplo e interações
 
-É um protótipo sem backend. Os dados são mantidos no localStorage do navegador.
+É um protótipo com backend. 
