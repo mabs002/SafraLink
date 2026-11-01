@@ -17,6 +17,7 @@
     {key:'harvests',label:'Colheitas',storage:'safralink_harvests'},
     {key:'orders',label:'Pedidos',storage:'safralink_orders'},
     {key:'transports',label:'Transportes',storage:'safralink_transports'},
+    {key:'leftovers',label:'Sobras',storage:'safralink_leftovers'},
   ];
 
   const esc = v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
@@ -44,6 +45,9 @@
   }
   function write(def,list){
     localStorage.setItem(def.storage,JSON.stringify(list));
+    if (typeof window.syncStorageKeyWithSupabase === 'function') {
+      window.syncStorageKeyWithSupabase(def.storage, list);
+    }
     // Se o administrador alterou um usuário que está logado neste navegador,
     // a sessão daquele usuário também é atualizada imediatamente.
     if (def.key === 'users') {
@@ -164,19 +168,28 @@
         const duplicated = list.some((u,i) => i !== index && String(u.email || '').trim().toLowerCase() === newEmail);
         if (duplicated) { alert('Já existe outro usuário com este e-mail.'); return; }
         updated.email = newEmail;
+        if (updated.seller !== original.seller) {
+          updated.role = updated.seller ? 'seller' : 'buyer';
+        } else if (updated.role !== original.role) {
+          updated.seller = String(updated.role || '').toLowerCase() === 'seller';
+          updated.admin = String(updated.role || '').toLowerCase() === 'admin';
+        }
       }
       list[index]=updated; write(def,list);
       // Mantém referências dos registros ligados ao usuário quando o e-mail mudou.
       if (def.key === 'users' && String(original.email || '').toLowerCase() !== String(updated.email || '').toLowerCase()) {
         const oldEmail = String(original.email || '').toLowerCase();
         const newEmail = String(updated.email || '').toLowerCase();
-        ['safralink_products','safralink_orders','safralink_transports','safralink_harvests'].forEach(storage => {
+        ['safralink_products','safralink_orders','safralink_transports','safralink_harvests','safralink_leftovers'].forEach(storage => {
           try {
             const arr = JSON.parse(localStorage.getItem(storage) || '[]');
             if (!Array.isArray(arr)) return;
             const replaceKeys = ['sellerEmail','buyerEmail','email','userEmail'];
             arr.forEach(obj => { if (obj && typeof obj === 'object') replaceKeys.forEach(k => { if (String(obj[k] || '').toLowerCase() === oldEmail) obj[k] = newEmail; }); });
             localStorage.setItem(storage, JSON.stringify(arr));
+            if (typeof window.syncStorageKeyWithSupabase === 'function') {
+              window.syncStorageKeyWithSupabase(storage, arr);
+            }
           } catch (_) {}
         });
       }
@@ -185,5 +198,6 @@
   }
   function refresh(){renderStats();renderPanels();renderTabs();activate(document.querySelector('.admin-tab.active')?.dataset.tab||'users');}
   document.getElementById('admin-logout').onclick=()=>{localStorage.removeItem('safralink_admin_session');location.href='index.html';};
+  window.addEventListener('safralink:synced', refresh);
   refresh();
 })();

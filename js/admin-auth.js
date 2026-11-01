@@ -10,12 +10,25 @@
     const emailInput = document.getElementById('admin-email');
     const passwordInput = document.getElementById('admin-password');
     const error = document.getElementById('admin-login-error');
-    form.addEventListener('submit', function (event) {
+    form.addEventListener('submit', async function (event) {
       event.preventDefault();
       event.stopPropagation();
       const email = String(emailInput.value || '').trim().toLowerCase();
       const password = String(passwordInput.value || '');
-      const account = ADMINS.find(item => item.email === email && item.password === password);
+      let account = ADMINS.find(item => item.email === email && item.password === password);
+      if (!account && window.supabaseClient) {
+        try {
+          const { data } = await window.supabaseClient
+            .from('usuarios')
+            .select('*')
+            .ilike('email', email)
+            .eq('admin', true)
+            .maybeSingle();
+          if (data && data.senha === password) {
+            account = { email: String(data.email || '').toLowerCase(), password: data.senha, name: data.nome || 'Administradora' };
+          }
+        } catch (_) {}
+      }
       if (!account) {
         error.textContent = 'E-mail ou senha administrativa incorretos.';
         error.hidden = false;

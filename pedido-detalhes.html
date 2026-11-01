@@ -54,12 +54,12 @@
   </main>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/app.js"></script>
 <script>
 (function(){
   'use strict';
   const content = document.querySelector('#order-detail-content');
-  const user = typeof getUser === 'function' ? getUser() : null;
 
   function escapeHTML(value){
     const div=document.createElement('div');
@@ -72,52 +72,58 @@
     catch(_) { return []; }
   }
 
-  if(!user){
-    window.location.href='inicio.html';
-    return;
+  function renderOrderDetail(){
+    const user = typeof getUser === 'function' ? getUser() : null;
+    if(!user){
+      window.location.href='inicio.html';
+      return;
+    }
+
+    const id = new URLSearchParams(window.location.search).get('id');
+    const order = getOrders().find(item => String(item.id) === String(id) && (user.seller ? item.sellerEmail === user.email : item.buyerEmail === user.email));
+
+    if(!order){
+      content.innerHTML='<div class="order-detail-error"><h3>Pedido não encontrado</h3><p class="hint">Este pedido não existe ou não pertence a você.</p><div class="order-detail-actions" style="justify-content:center"><a class="btn btn-soft" href="pedidos.html">Voltar aos pedidos</a></div></div>';
+      return;
+    }
+
+    const delivery = order.deliveryMethod || order.delivery || order.meioEntrega || 'A combinar';
+    const buyerEmail = order.buyerEmail || '';
+    const orderNumber = 'SL' + String(order.id).slice(-4);
+
+    content.innerHTML = `
+      <div>
+        <span class="hint">Pedido #${escapeHTML(orderNumber)}</span>
+        <h2 style="margin:5px 0 0">${escapeHTML(order.product || 'Pedido')}</h2>
+        <p class="hint" style="margin-top:6px">${escapeHTML(order.date || '')}</p>
+      </div>
+      <div class="order-detail-grid">
+        <div class="order-detail-item"><span>Comprador</span><strong>${escapeHTML(order.buyer || 'Não informado')}</strong></div>
+        <div class="order-detail-item"><span>Status</span><strong>${escapeHTML(order.status || 'Negociação')}</strong></div>
+        <div class="order-detail-item"><span>Quantidade</span><strong>${escapeHTML(order.quantity || 'Não informado')}</strong></div>
+        <div class="order-detail-item"><span>Meio de entrega</span><strong>${escapeHTML(delivery)}</strong></div>
+        <div class="order-detail-item"><span>Vendedor</span><strong>${escapeHTML(order.seller || user.name || 'Não informado')}</strong></div>
+        <div class="order-detail-item"><span>Produto</span><strong>${escapeHTML(order.product || 'Não informado')}</strong></div>
+      </div>
+      <div class="order-detail-actions">
+        ${user.seller && buyerEmail ? `<a class="btn btn-primary" href="chat.html?email=${encodeURIComponent(buyerEmail)}">💬 Falar com comprador</a>` : ''}
+        ${!user.seller ? `<button type="button" class="btn btn-primary" id="edit-order-detail">✏️ Editar pedido</button>` : ''}
+        <a class="btn btn-soft" href="pedidos.html">Voltar aos pedidos</a>
+      </div>`;
+    const editButton = document.querySelector('#edit-order-detail');
+    if (editButton) {
+      editButton.onclick = () => {
+        if (typeof openOrderEdit === 'function') {
+          openOrderEdit(order.id);
+        } else {
+          window.location.href = 'pedidos.html';
+        }
+      };
+    }
   }
 
-  const id = new URLSearchParams(window.location.search).get('id');
-  const order = getOrders().find(item => String(item.id) === String(id) && (user.seller ? item.sellerEmail === user.email : item.buyerEmail === user.email));
-
-  if(!order){
-    content.innerHTML='<div class="order-detail-error"><h3>Pedido não encontrado</h3><p class="hint">Este pedido não existe ou não pertence a você.</p><div class="order-detail-actions" style="justify-content:center"><a class="btn btn-soft" href="pedidos.html">Voltar aos pedidos</a></div></div>';
-    return;
-  }
-
-  const delivery = order.deliveryMethod || order.delivery || order.meioEntrega || 'A combinar';
-  const buyerEmail = order.buyerEmail || '';
-  const orderNumber = 'SL' + String(order.id).slice(-4);
-
-  content.innerHTML = `
-    <div>
-      <span class="hint">Pedido #${escapeHTML(orderNumber)}</span>
-      <h2 style="margin:5px 0 0">${escapeHTML(order.product || 'Pedido')}</h2>
-      <p class="hint" style="margin-top:6px">${escapeHTML(order.date || '')}</p>
-    </div>
-    <div class="order-detail-grid">
-      <div class="order-detail-item"><span>Comprador</span><strong>${escapeHTML(order.buyer || 'Não informado')}</strong></div>
-      <div class="order-detail-item"><span>Status</span><strong>${escapeHTML(order.status || 'Negociação')}</strong></div>
-      <div class="order-detail-item"><span>Quantidade</span><strong>${escapeHTML(order.quantity || 'Não informado')}</strong></div>
-      <div class="order-detail-item"><span>Meio de entrega</span><strong>${escapeHTML(delivery)}</strong></div>
-      <div class="order-detail-item"><span>Vendedor</span><strong>${escapeHTML(order.seller || user.name || 'Não informado')}</strong></div>
-      <div class="order-detail-item"><span>Produto</span><strong>${escapeHTML(order.product || 'Não informado')}</strong></div>
-    </div>
-    <div class="order-detail-actions">
-      ${user.seller && buyerEmail ? `<a class="btn btn-primary" href="chat.html?email=${encodeURIComponent(buyerEmail)}">💬 Falar com comprador</a>` : ''}
-      ${!user.seller ? `<button type="button" class="btn btn-primary" id="edit-order-detail">✏️ Editar pedido</button>` : ''}
-      <a class="btn btn-soft" href="pedidos.html">Voltar aos pedidos</a>
-    </div>`;
-  const editButton = document.querySelector('#edit-order-detail');
-  if (editButton) {
-    editButton.onclick = () => {
-      if (typeof openOrderEdit === 'function') {
-        openOrderEdit(order.id);
-      } else {
-        window.location.href = 'pedidos.html';
-      }
-    };
-  }
+  renderOrderDetail();
+  window.addEventListener('safralink:synced', renderOrderDetail);
 })();
 </script>
 </body>

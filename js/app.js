@@ -3,6 +3,610 @@
    JavaScript principal do sistema
    ========================================================= */
 
+// =====================================================
+// CONFIGURAÇÃO DO SUPABASE
+// =====================================================
+
+// URL do projeto Supabase
+// Substitua pelo endereço do seu projeto.
+const SUPABASE_URL = "https://tngetuphoormtqubcmyy.supabase.co";
+
+
+// Chave pública do projeto
+// Utilize somente a chave pública destinada ao cliente.
+// NÃO coloque aqui a Service Role Key.
+const SUPABASE_ANON_KEY = "sb_publishable_J2OZod_UhX_9h5V0rDd05w_Ut4scr1E";
+
+
+// Cria a conexão com o Supabase
+const supabaseClient =
+  typeof supabase !== "undefined" &&
+  SUPABASE_URL &&
+  SUPABASE_URL !== "COLE_AQUI_SUA_URL" &&
+  /^https?:\/\//i.test(SUPABASE_URL) &&
+  SUPABASE_ANON_KEY &&
+  SUPABASE_ANON_KEY !== "COLE_AQUI_SUA_CHAVE_PUBLICA"
+    ? supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_ANON_KEY
+      )
+    : null;
+
+window.supabaseClient = supabaseClient;
+
+
+/* =========================================================
+   INTEGRAÇÃO E SINCRONIZAÇÃO COM SUPABASE (POSTGRESQL)
+   ========================================================= */
+
+let isApplyingRemoteSync = false;
+const pendingSupabaseOps = [];
+const dbSnapshots = {};
+
+function trackSupabaseOp(promise) {
+  if (!promise || typeof promise.then !== 'function') return promise;
+  const nativePromise = Promise.resolve(promise);
+  pendingSupabaseOps.push(nativePromise);
+  nativePromise.finally(() => {
+    const idx = pendingSupabaseOps.indexOf(nativePromise);
+    if (idx >= 0) pendingSupabaseOps.splice(idx, 1);
+  });
+  return nativePromise;
+}
+
+window.waitForSupabaseSync = function () {
+  return Promise.allSettled(pendingSupabaseOps.slice());
+};
+
+function validDbId(id) {
+  const num = Number(id);
+  return Number.isInteger(num) && num > 0 && num < 1000000000000 ? num : null;
+}
+
+function userIdByEmail(email) {
+  const clean = String(email || '').trim().toLowerCase();
+  if (!clean) return null;
+  const u = getUsers().find(item => String(item.email || '').trim().toLowerCase() === clean);
+  return u ? validDbId(u.id) : null;
+}
+window.userIdByEmail = userIdByEmail;
+
+function fromDbUser(row) {
+  const isAdmin = row.admin === true || String(row.perfil || '').toLowerCase() === 'admin';
+  const isSeller = !isAdmin && (row.vendedor === true || String(row.perfil || '').toLowerCase() === 'seller');
+  return {
+    id: row.id,
+    name: row.nome || 'Usuário',
+    email: String(row.email || '').toLowerCase(),
+    password: row.senha || '',
+    seller: isSeller,
+    admin: isAdmin,
+    role: isAdmin ? 'admin' : isSeller ? 'seller' : 'buyer',
+    farm: row.propriedade || '',
+    city: row.municipio || '',
+    sellerDocumentType: row.tipo_documento || '',
+    documentType: row.tipo_documento || '',
+    sellerDocument: row.documento || '',
+    document: row.documento || '',
+    sellerBirthDate: row.data_nascimento || '',
+    birth: row.data_nascimento || '',
+    sellerPhone: row.telefone || '',
+    phone: row.telefone || '',
+    sellerCep: row.cep || '',
+    cep: row.cep || '',
+    sellerAddress: row.endereco || '',
+    address: row.endereco || '',
+    sellerProduction: row.tipo_producao || '',
+    productionType: row.tipo_producao || '',
+    sellerDescription: row.descricao_atividade || '',
+    activityDescription: row.descricao_atividade || '',
+    sellerDocumentFileName: row.arquivo_documento || '',
+    photoData: row.foto_perfil || '',
+    sellerRegistrationComplete: isSeller
+  };
+}
+
+function toDbUser(u) {
+  const isAdmin = u.admin === true || String(u.role || '').toLowerCase() === 'admin';
+  const isSeller = !isAdmin && (u.seller === true || String(u.role || '').toLowerCase() === 'seller');
+  return {
+    nome: u.name || u.nome || 'Usuário',
+    email: String(u.email || '').trim().toLowerCase(),
+    senha: u.password || u.senha || '123456',
+    vendedor: isSeller,
+    admin: isAdmin,
+    perfil: isAdmin ? 'admin' : isSeller ? 'seller' : 'buyer',
+    propriedade: u.farm || u.farmName || '',
+    municipio: u.city || '',
+    tipo_documento: u.sellerDocumentType || u.documentType || '',
+    documento: u.sellerDocument || u.document || '',
+    data_nascimento: u.sellerBirthDate || u.birth || '',
+    telefone: u.sellerPhone || u.phone || '',
+    cep: u.sellerCep || u.cep || '',
+    endereco: u.sellerAddress || u.address || '',
+    tipo_producao: u.sellerProduction || u.productionType || '',
+    descricao_atividade: u.sellerDescription || u.activityDescription || '',
+    arquivo_documento: u.sellerDocumentFileName || '',
+    foto_perfil: u.photoData || ''
+  };
+}
+
+function fromDbProduct(row) {
+  return {
+    id: row.id,
+    name: row.nome || '',
+    type: row.tipo || 'Hortaliça',
+    qty: row.quantidade || '',
+    price: row.preco || '',
+    location: row.localizacao || '',
+    emoji: row.emoji || '🌱',
+    description: row.descricao || '',
+    unit: row.unidade || '',
+    minOrder: row.pedido_minimo || '',
+    photoData: row.foto || '',
+    disponivel: row.disponivel !== false,
+    seller: row.vendedor_nome || 'Produtor',
+    sellerEmail: String(row.vendedor_email || '').toLowerCase(),
+    reviews: Array.isArray(row.avaliacoes) ? row.avaliacoes : []
+  };
+}
+
+function toDbProduct(p) {
+  return {
+    usuario_id: userIdByEmail(p.sellerEmail),
+    nome: p.name || '',
+    tipo: p.type || 'Hortaliça',
+    quantidade: p.qty || '',
+    preco: p.price || '',
+    localizacao: p.location || '',
+    emoji: p.emoji || '🌱',
+    descricao: p.description || '',
+    unidade: p.unit || '',
+    pedido_minimo: p.minOrder || '',
+    foto: p.photoData || '',
+    disponivel: p.disponivel !== false,
+    vendedor_nome: p.seller || 'Produtor',
+    vendedor_email: String(p.sellerEmail || '').toLowerCase(),
+    avaliacoes: Array.isArray(p.reviews) ? p.reviews : []
+  };
+}
+
+function fromDbHarvest(row) {
+  return {
+    id: row.id,
+    product: row.produto || '',
+    quantity: row.quantidade || '',
+    start: row.data_inicio ? String(row.data_inicio).slice(0, 10) : '',
+    end: row.data_fim ? String(row.data_fim).slice(0, 10) : '',
+    status: row.status || 'Prevista',
+    notes: row.observacoes || '',
+    seller: row.vendedor_nome || 'Produtor',
+    sellerEmail: String(row.vendedor_email || '').toLowerCase()
+  };
+}
+
+function toDbHarvest(h) {
+  return {
+    usuario_id: userIdByEmail(h.sellerEmail),
+    produto: h.product || '',
+    quantidade: h.quantity || '',
+    data_inicio: h.start || new Date().toISOString().slice(0, 10),
+    data_fim: h.end || h.start || new Date().toISOString().slice(0, 10),
+    status: h.status || 'Prevista',
+    observacoes: h.notes || '',
+    vendedor_nome: h.seller || 'Produtor',
+    vendedor_email: String(h.sellerEmail || '').toLowerCase()
+  };
+}
+
+function fromDbOrder(row) {
+  return {
+    id: row.id,
+    productId: row.produto_id,
+    product: row.produto_nome || '',
+    quantity: row.quantidade || '',
+    quantityValue: row.quantidade_valor != null ? Number(row.quantidade_valor) : 0,
+    quantityUnit: row.quantidade_unidade || '',
+    availableQuantity: row.quantidade_disponivel || '',
+    buyer: row.comprador_nome || 'Comprador',
+    buyerEmail: String(row.comprador_email || '').toLowerCase(),
+    seller: row.vendedor_nome || 'Produtor',
+    sellerEmail: String(row.vendedor_email || '').toLowerCase(),
+    date: row.data_pedido || '',
+    status: row.status || 'Negociação',
+    deliveryMethod: row.forma_entrega || 'A combinar'
+  };
+}
+
+function toDbOrder(o) {
+  return {
+    produto_id: validDbId(o.productId),
+    comprador_id: userIdByEmail(o.buyerEmail),
+    vendedor_id: userIdByEmail(o.sellerEmail),
+    produto_nome: o.product || '',
+    quantidade: o.quantity || '',
+    quantidade_valor: o.quantityValue != null ? Number(o.quantityValue) : null,
+    quantidade_unidade: o.quantityUnit || '',
+    quantidade_disponivel: o.availableQuantity || '',
+    comprador_nome: o.buyer || 'Comprador',
+    comprador_email: String(o.buyerEmail || '').toLowerCase(),
+    vendedor_nome: o.seller || 'Produtor',
+    vendedor_email: String(o.sellerEmail || '').toLowerCase(),
+    data_pedido: o.date || new Date().toLocaleDateString('pt-BR'),
+    status: o.status || 'Negociação',
+    forma_entrega: o.deliveryMethod || 'A combinar'
+  };
+}
+
+function fromDbTransport(row) {
+  return {
+    id: row.id,
+    plate: row.placa || '',
+    product: row.produto || '',
+    origin: row.origem || '',
+    destination: row.destino || '',
+    quantity: row.quantidade || '',
+    status: row.status || 'Solicitado',
+    sellerEmail: String(row.vendedor_email || '').toLowerCase()
+  };
+}
+
+function toDbTransport(t) {
+  return {
+    usuario_id: userIdByEmail(t.sellerEmail),
+    placa: t.plate || '',
+    produto: t.product || '',
+    origem: t.origin || '',
+    destino: t.destination || '',
+    quantidade: t.quantity || '',
+    status: t.status || 'Solicitado',
+    vendedor_email: String(t.sellerEmail || '').toLowerCase()
+  };
+}
+
+function fromDbLeftover(row) {
+  return {
+    id: row.id,
+    product: row.produto || '',
+    quantity: row.quantidade || '',
+    destination: row.destino || 'Doação',
+    date: row.data_registro || '',
+    sellerEmail: String(row.vendedor_email || '').toLowerCase()
+  };
+}
+
+function toDbLeftover(l) {
+  return {
+    usuario_id: userIdByEmail(l.sellerEmail),
+    produto: l.product || '',
+    quantidade: l.quantity || '',
+    destino: l.destination || 'Doação',
+    data_registro: l.date || '',
+    vendedor_email: String(l.sellerEmail || '').toLowerCase()
+  };
+}
+
+function fromDbInterest(row) {
+  return {
+    id: row.id,
+    productId: row.produto_id,
+    buyerEmail: String(row.comprador_email || '').toLowerCase(),
+    name: row.nome || 'Produto',
+    type: row.tipo || 'Produto',
+    price: row.preco || '',
+    qty: row.quantidade || '',
+    unit: row.unidade || '',
+    seller: row.vendedor_nome || 'Produtor',
+    sellerEmail: String(row.vendedor_email || '').toLowerCase(),
+    location: row.localizacao || '',
+    photoData: row.foto || '',
+    createdAt: row.criado_em || new Date().toISOString()
+  };
+}
+
+function toDbInterest(i) {
+  return {
+    produto_id: validDbId(i.productId),
+    usuario_id: userIdByEmail(i.buyerEmail),
+    comprador_email: String(i.buyerEmail || '').toLowerCase(),
+    nome: i.name || 'Produto',
+    tipo: i.type || 'Produto',
+    preco: i.price || '',
+    quantidade: i.qty || '',
+    unidade: i.unit || '',
+    vendedor_nome: i.seller || 'Produtor',
+    vendedor_email: String(i.sellerEmail || '').toLowerCase(),
+    localizacao: i.location || '',
+    foto: i.photoData || ''
+  };
+}
+
+const STORAGE_TO_SUPABASE = {
+  safralink_users: { table: 'usuarios', toDb: toDbUser, fromDb: fromDbUser, keyField: 'email' },
+  safralink_products: { table: 'produtos', toDb: toDbProduct, fromDb: fromDbProduct },
+  safralink_harvests: { table: 'colheitas', toDb: toDbHarvest, fromDb: fromDbHarvest },
+  safralink_orders: { table: 'pedidos', toDb: toDbOrder, fromDb: fromDbOrder },
+  safralink_transports: { table: 'transportes', toDb: toDbTransport, fromDb: fromDbTransport },
+  safralink_leftovers: { table: 'sobras', toDb: toDbLeftover, fromDb: fromDbLeftover },
+  safralink_product_interests: { table: 'interesses', toDb: toDbInterest, fromDb: fromDbInterest }
+};
+
+function readRawStorageList(storageKey) {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+Object.keys(STORAGE_TO_SUPABASE).forEach(key => {
+  dbSnapshots[key] = readRawStorageList(key);
+});
+
+function syncStorageKeyWithSupabase(storageKey, nextList) {
+  const cfg = STORAGE_TO_SUPABASE[storageKey];
+  const prevList = Array.isArray(dbSnapshots[storageKey]) ? dbSnapshots[storageKey] : [];
+  const currentList = Array.isArray(nextList) ? nextList.map(item => ({ ...item })) : [];
+  dbSnapshots[storageKey] = currentList;
+
+  if (!supabaseClient || isApplyingRemoteSync || !cfg) return;
+
+  const { table, toDb, keyField } = cfg;
+  const matchItem = (list, target) => {
+    if (validDbId(target.id)) {
+      const byId = list.find(x => String(x.id) === String(target.id));
+      if (byId) return byId;
+    }
+    if (keyField && target[keyField]) {
+      return list.find(x => String(x[keyField] || '').toLowerCase() === String(target[keyField] || '').toLowerCase());
+    }
+    return list.find(x => x.id != null && target.id != null && String(x.id) === String(target.id));
+  };
+
+  // 1. Exclusões
+  prevList.forEach(oldItem => {
+    if (!matchItem(currentList, oldItem)) {
+      if (validDbId(oldItem.id)) {
+        trackSupabaseOp(supabaseClient.from(table).delete().eq('id', Number(oldItem.id)));
+      } else if (keyField && oldItem[keyField]) {
+        trackSupabaseOp(supabaseClient.from(table).delete().eq(keyField, String(oldItem[keyField]).toLowerCase()));
+      }
+    }
+  });
+
+  // 2. Inserções e Atualizações
+  currentList.forEach(item => {
+    const prevItem = matchItem(prevList, item);
+    if (!prevItem || (!validDbId(item.id) && !validDbId(prevItem.id))) {
+      if (table === 'usuarios') {
+        trackSupabaseOp(
+          supabaseClient
+            .from('usuarios')
+            .upsert(toDb(item), { onConflict: 'email' })
+            .select()
+            .single()
+            .then(({ data }) => {
+              if (data && data.id) {
+                item.id = data.id;
+                localStorage.setItem(storageKey, JSON.stringify(currentList));
+              }
+            })
+        );
+      } else {
+        trackSupabaseOp(
+          supabaseClient
+            .from(table)
+            .insert(toDb(item))
+            .select()
+            .single()
+            .then(({ data }) => {
+              if (data && data.id) {
+                item.id = data.id;
+                localStorage.setItem(storageKey, JSON.stringify(currentList));
+              }
+            })
+        );
+      }
+    } else if (JSON.stringify(prevItem) !== JSON.stringify(item)) {
+      if (table === 'usuarios' && item.email) {
+        trackSupabaseOp(
+          supabaseClient
+            .from('usuarios')
+            .upsert(toDb(item), { onConflict: 'email' })
+            .select()
+            .single()
+            .then(({ data }) => {
+              if (data && data.id) {
+                item.id = data.id;
+                localStorage.setItem(storageKey, JSON.stringify(currentList));
+              }
+            })
+        );
+      } else if (validDbId(item.id)) {
+        trackSupabaseOp(supabaseClient.from(table).update(toDb(item)).eq('id', Number(item.id)).then(() => {}));
+      }
+    }
+  });
+}
+window.syncStorageKeyWithSupabase = syncStorageKeyWithSupabase;
+
+async function syncFromSupabase() {
+  if (!supabaseClient) return;
+  try {
+    const [
+      usersRes,
+      productsRes,
+      harvestsRes,
+      ordersRes,
+      transportsRes,
+      leftoversRes,
+      interestsRes,
+      messagesRes
+    ] = await Promise.all([
+      supabaseClient.from('usuarios').select('*').order('id', { ascending: true }),
+      supabaseClient.from('produtos').select('*').order('id', { ascending: false }),
+      supabaseClient.from('colheitas').select('*').order('id', { ascending: false }),
+      supabaseClient.from('pedidos').select('*').order('id', { ascending: false }),
+      supabaseClient.from('transportes').select('*').order('id', { ascending: false }),
+      supabaseClient.from('sobras').select('*').order('id', { ascending: false }),
+      supabaseClient.from('interesses').select('*').order('id', { ascending: false }),
+      supabaseClient.from('mensagens').select('*').order('criado_em', { ascending: true })
+    ]);
+
+    isApplyingRemoteSync = true;
+
+    if (!usersRes.error && Array.isArray(usersRes.data)) {
+      const mappedUsers = usersRes.data.map(fromDbUser);
+      localStorage.setItem('safralink_users', JSON.stringify(mappedUsers));
+      dbSnapshots.safralink_users = mappedUsers.map(u => ({ ...u }));
+
+      const session = JSON.parse(localStorage.getItem('safralink_user') || 'null');
+      if (session && session.email) {
+        const freshUser = mappedUsers.find(u => u.email === String(session.email).toLowerCase());
+        if (freshUser) {
+          if (session.seller === true && !freshUser.seller) {
+            const upgraded = { ...freshUser, ...session, seller: true, role: 'seller' };
+            localStorage.setItem('safralink_user', JSON.stringify(upgraded));
+            const idx = mappedUsers.findIndex(u => u.email === freshUser.email);
+            if (idx >= 0) {
+              mappedUsers[idx] = upgraded;
+              localStorage.setItem('safralink_users', JSON.stringify(mappedUsers));
+              dbSnapshots.safralink_users = mappedUsers.map(u => ({ ...u }));
+            }
+            trackSupabaseOp(
+              supabaseClient
+                .from('usuarios')
+                .upsert(toDbUser(upgraded), { onConflict: 'email' })
+                .select()
+                .single()
+            );
+          } else {
+            localStorage.setItem('safralink_user', JSON.stringify({ ...session, ...freshUser }));
+          }
+        }
+      }
+    }
+
+    if (!productsRes.error && Array.isArray(productsRes.data)) {
+      const mappedProducts = productsRes.data.map(fromDbProduct);
+      localStorage.setItem('safralink_products', JSON.stringify(mappedProducts));
+      dbSnapshots.safralink_products = mappedProducts.map(p => ({ ...p }));
+    }
+
+    if (!harvestsRes.error && Array.isArray(harvestsRes.data)) {
+      const mappedHarvests = harvestsRes.data.map(fromDbHarvest);
+      localStorage.setItem('safralink_harvests', JSON.stringify(mappedHarvests));
+      dbSnapshots.safralink_harvests = mappedHarvests.map(h => ({ ...h }));
+    }
+
+    if (!ordersRes.error && Array.isArray(ordersRes.data)) {
+      const mappedOrders = ordersRes.data.map(fromDbOrder);
+      localStorage.setItem('safralink_orders', JSON.stringify(mappedOrders));
+      dbSnapshots.safralink_orders = mappedOrders.map(o => ({ ...o }));
+    }
+
+    if (!transportsRes.error && Array.isArray(transportsRes.data)) {
+      const mappedTransports = transportsRes.data.map(fromDbTransport);
+      localStorage.setItem('safralink_transports', JSON.stringify(mappedTransports));
+      dbSnapshots.safralink_transports = mappedTransports.map(t => ({ ...t }));
+    }
+
+    if (!leftoversRes.error && Array.isArray(leftoversRes.data)) {
+      const mappedLeftovers = leftoversRes.data.map(fromDbLeftover);
+      localStorage.setItem('safralink_leftovers', JSON.stringify(mappedLeftovers));
+      dbSnapshots.safralink_leftovers = mappedLeftovers.map(l => ({ ...l }));
+    }
+
+    if (!interestsRes.error && Array.isArray(interestsRes.data)) {
+      const mappedInterests = interestsRes.data.map(fromDbInterest);
+      localStorage.setItem('safralink_product_interests', JSON.stringify(mappedInterests));
+      dbSnapshots.safralink_product_interests = mappedInterests.map(i => ({ ...i }));
+    }
+
+    if (!messagesRes.error && Array.isArray(messagesRes.data)) {
+      let existingChats = {};
+      try { existingChats = JSON.parse(localStorage.getItem('safralink_chats') || '{}') || {}; } catch (_) { existingChats = {}; }
+      const rebuiltChats = {};
+
+      // Mantém conversas abertas que ainda não possuem mensagens
+      Object.entries(existingChats).forEach(([key, chat]) => {
+        if (chat && Array.isArray(chat.participants) && chat.participants.length === 2) {
+          rebuiltChats[key] = {
+            participants: chat.participants.map(e => String(e || '').toLowerCase().trim()),
+            messages: [],
+            unread: {},
+            createdAt: chat.createdAt || Date.now(),
+            updatedAt: chat.updatedAt || Date.now()
+          };
+        }
+      });
+
+      messagesRes.data.forEach(row => {
+        const sender = String(row.remetente_email || '').toLowerCase().trim();
+        const receiver = String(row.destinatario_email || '').toLowerCase().trim();
+        if (!sender || !receiver) return;
+        const key = row.conversa_chave || [sender, receiver].sort().join('::');
+        const ts = row.criado_em ? new Date(row.criado_em).getTime() : Date.now();
+        if (!rebuiltChats[key]) {
+          rebuiltChats[key] = {
+            participants: [sender, receiver].sort(),
+            messages: [],
+            unread: {},
+            createdAt: ts,
+            updatedAt: ts
+          };
+        }
+        rebuiltChats[key].messages.push({
+          id: 'msg_' + row.id,
+          dbId: row.id,
+          sender,
+          receiver,
+          text: row.texto || '',
+          createdAt: ts
+        });
+        rebuiltChats[key].updatedAt = Math.max(rebuiltChats[key].updatedAt || 0, ts);
+        if (!row.lida) {
+          rebuiltChats[key].unread[receiver] = (rebuiltChats[key].unread[receiver] || 0) + 1;
+        }
+      });
+
+      localStorage.setItem('safralink_chats', JSON.stringify(rebuiltChats));
+    }
+
+    isApplyingRemoteSync = false;
+
+    const isAdminOrChat =
+      document.body.classList.contains('admin-page') ||
+      document.body.classList.contains('admin-auth-page') ||
+      document.body.dataset.page === 'chat';
+
+    if (!isAdminOrChat) {
+      setupShell();
+      if (document.querySelector('#product-list')) {
+        if (document.body.dataset.page === 'inicio') {
+          renderInicioDashboard();
+        } else {
+          renderProducts();
+        }
+      }
+      renderOrders();
+      renderHarvests();
+      renderTransports();
+      renderLeftovers();
+      renderInterestDrawer();
+    }
+
+    window.dispatchEvent(new CustomEvent('safralink:synced'));
+  } catch (err) {
+    isApplyingRemoteSync = false;
+    console.error('Erro ao sincronizar com o Supabase:', err);
+  }
+}
+window.syncFromSupabase = syncFromSupabase;
+
 
 /* =========================================================
    PRODUTOS DE EXEMPLO
@@ -138,10 +742,12 @@ function getUsers() {
 */
 function saveUsers(users) {
 
+  const clean = Array.isArray(users) ? users : [];
   localStorage.setItem(
     'safralink_users',
-    JSON.stringify(Array.isArray(users) ? users : [])
+    JSON.stringify(clean)
   );
+  syncStorageKeyWithSupabase('safralink_users', clean);
 
 }
 
@@ -155,6 +761,15 @@ function saveUser(user) {
     'safralink_user',
     JSON.stringify(user)
   );
+  if (supabaseClient && !isApplyingRemoteSync && user && user.email) {
+    trackSupabaseOp(
+      supabaseClient
+        .from('usuarios')
+        .upsert(toDbUser(user), { onConflict: 'email' })
+        .select()
+        .single()
+    );
+  }
 
 }
 
@@ -857,6 +1472,7 @@ function saveProducts(list) {
     'safralink_products',
     JSON.stringify(list)
   );
+  syncStorageKeyWithSupabase('safralink_products', list);
 
 }
 
@@ -1220,6 +1836,7 @@ function renderInterestDrawer(){
       try { all = JSON.parse(localStorage.getItem('safralink_product_interests') || '[]'); } catch (_) { all = []; }
       all = Array.isArray(all) ? all.filter(item => String(item.id) !== id) : [];
       localStorage.setItem('safralink_product_interests', JSON.stringify(all));
+      syncStorageKeyWithSupabase('safralink_product_interests', all);
       renderInterestDrawer();
       toast('Interesse removido.');
     };
@@ -1493,6 +2110,7 @@ function renderProducts(
           createdAt: new Date().toISOString()
         });
         localStorage.setItem(key, JSON.stringify(list));
+        syncStorageKeyWithSupabase(key, list);
         renderInterestDrawer();
         toast('Produto adicionado à sua lista de interesses.');
       };
@@ -1615,6 +2233,7 @@ function saveOrders(items) {
     'safralink_orders',
     JSON.stringify(items)
   );
+  syncStorageKeyWithSupabase('safralink_orders', items);
 
 }
 
@@ -1781,6 +2400,7 @@ function saveHarvests(items) {
     'safralink_harvests',
     JSON.stringify(items)
   );
+  syncStorageKeyWithSupabase('safralink_harvests', items);
 
 }
 
@@ -1854,10 +2474,14 @@ function renderHarvests(
       '[data-example-harvest]'
     );
 
+  const hasDatabaseHarvests =
+    !!supabaseClient &&
+    harvests().length > 0;
+
   examples.forEach(row => {
 
     row.style.display =
-      user?.seller
+      user?.seller || hasDatabaseHarvests
         ? 'none'
         : '';
 
@@ -2195,6 +2819,7 @@ function saveTransports(items) {
     'safralink_transports',
     JSON.stringify(items)
   );
+  syncStorageKeyWithSupabase('safralink_transports', items);
 
 }
 
@@ -2337,6 +2962,7 @@ function saveLeftovers(items) {
     'safralink_leftovers',
     JSON.stringify(all)
   );
+  syncStorageKeyWithSupabase('safralink_leftovers', all);
 
 }
 
@@ -2883,8 +3509,12 @@ function renderInicioDashboard() {
          Elas aparecem para compradores mesmo quando
          a tela inicial não está na página de colheitas.
       */
+      const hasDatabaseHarvests =
+        !!supabaseClient &&
+        visibleHarvests.length > 0;
+
       const exampleCount =
-        isSeller
+        isSeller || hasDatabaseHarvests
           ? 0
           : 3;
 
@@ -3017,6 +3647,19 @@ document.addEventListener(
   'DOMContentLoaded',
   () => {
 
+    if (
+      document.body.classList.contains('admin-page') ||
+      document.body.classList.contains('admin-auth-page') ||
+      document.body.dataset.page === 'chat'
+    ) {
+      if (supabaseClient) syncFromSupabase();
+      return;
+    }
+
+    if (supabaseClient) {
+      syncFromSupabase();
+    }
+
 
     /* =====================================================
        PÁGINAS PRIVADAS
@@ -3092,8 +3735,10 @@ document.addEventListener(
     /*
        Limpa os pedidos antigos de teste uma única vez.
     */
-    clearOldTestOrdersV3();
-    clearAllOrdersOnceV4();
+    if (!supabaseClient) {
+      clearOldTestOrdersV3();
+      clearAllOrdersOnceV4();
+    }
 
 
     /* =====================================================
@@ -3368,7 +4013,7 @@ document.addEventListener(
     if (login) {
 
       login.onsubmit =
-        event => {
+        async event => {
 
           event.preventDefault();
 
@@ -3436,6 +4081,51 @@ document.addEventListener(
 
             return;
 
+          }
+
+
+          /*
+             Se o Supabase estiver configurado, busca a conta
+             diretamente no banco de dados caso ainda não esteja em cache.
+          */
+          if (supabaseClient) {
+            try {
+              const { data: dbRow } = await supabaseClient
+                .from('usuarios')
+                .select('*')
+                .ilike('email', email)
+                .maybeSingle();
+
+              if (dbRow) {
+                const mapped = fromDbUser(dbRow);
+                if (mapped.admin) {
+                  if (mapped.password && mapped.password !== password) {
+                    toast('Senha incorreta.');
+                    return;
+                  }
+                  localStorage.setItem(
+                    'safralink_admin_session',
+                    JSON.stringify({
+                      admin: true,
+                      role: 'admin',
+                      email: mapped.email,
+                      name: mapped.name
+                    })
+                  );
+                  localStorage.removeItem('safralink_user');
+                  location.href = 'admin.html';
+                  return;
+                }
+                const currentUsers = getUsers();
+                const idx = currentUsers.findIndex(u => String(u.email || '').toLowerCase() === email);
+                if (idx >= 0) currentUsers[idx] = mapped;
+                else currentUsers.push(mapped);
+                isApplyingRemoteSync = true;
+                localStorage.setItem('safralink_users', JSON.stringify(currentUsers));
+                dbSnapshots.safralink_users = currentUsers.map(u => ({ ...u }));
+                isApplyingRemoteSync = false;
+              }
+            } catch (_) {}
           }
 
 
@@ -3648,15 +4338,17 @@ document.addEventListener(
           );
 
 
-          setTimeout(
-            () => {
+          (window.waitForSupabaseSync ? window.waitForSupabaseSync() : Promise.resolve()).finally(() => {
+            setTimeout(
+              () => {
 
-              location.href =
-                'inicio.html';
+                location.href =
+                  'inicio.html';
 
-            },
-            700
-          );
+              },
+              500
+            );
+          });
 
         };
 
@@ -3721,17 +4413,26 @@ document.addEventListener(
             document.querySelector(id)?.value?.trim() || '';
 
           user.seller = true;
+          user.role = 'seller';
           user.name = value('#seller-account-name') || user.name || '';
           user.farm = value('#seller-name');
           user.city = value('#seller-city');
           user.sellerDocumentType = value('#seller-document-type');
+          user.documentType = user.sellerDocumentType;
           user.sellerDocument = value('#seller-document');
+          user.document = user.sellerDocument;
           user.sellerBirthDate = value('#seller-birth');
+          user.birth = user.sellerBirthDate;
           user.sellerPhone = value('#seller-phone');
+          user.phone = user.sellerPhone;
           user.sellerCep = value('#seller-cep');
+          user.cep = user.sellerCep;
           user.sellerAddress = value('#seller-address');
+          user.address = user.sellerAddress;
           user.sellerProduction = value('#seller-production');
+          user.productionType = user.sellerProduction;
           user.sellerDescription = value('#seller-description');
+          user.activityDescription = user.sellerDescription;
           user.sellerDocumentFileName =
             document.querySelector('#seller-document-photo')?.files?.[0]?.name ||
             user.sellerDocumentFileName || '';
@@ -3748,9 +4449,11 @@ document.addEventListener(
           );
 
           if (index >= 0) {
-            users[index] = { ...users[index], ...user };
-            saveUsers(users);
+            users[index] = { ...users[index], ...user, seller: true, role: 'seller' };
+          } else {
+            users.push({ ...user, seller: true, role: 'seller' });
           }
+          saveUsers(users);
 
           saveUser(user);
 
@@ -3760,15 +4463,17 @@ document.addEventListener(
           );
 
 
-          setTimeout(
-            () => {
+          (window.waitForSupabaseSync ? window.waitForSupabaseSync() : Promise.resolve()).finally(() => {
+            setTimeout(
+              () => {
 
-              location.href =
-                'inicio.html';
+                location.href =
+                  'inicio.html';
 
-            },
-            700
-          );
+              },
+              500
+            );
+          });
 
         };
 
@@ -3838,9 +4543,11 @@ document.addEventListener(
 
         toast('Conta de vendedor criada!');
 
-        setTimeout(() => {
-          location.href = 'inicio.html';
-        }, 500);
+        (window.waitForSupabaseSync ? window.waitForSupabaseSync() : Promise.resolve()).finally(() => {
+          setTimeout(() => {
+            location.href = 'inicio.html';
+          }, 500);
+        });
       };
     }
 
@@ -4123,15 +4830,17 @@ document.addEventListener(
             );
 
 
-            setTimeout(
-              () => {
+            (window.waitForSupabaseSync ? window.waitForSupabaseSync() : Promise.resolve()).finally(() => {
+              setTimeout(
+                () => {
 
-                location.href =
-                  'produtos.html';
+                  location.href =
+                    'produtos.html';
 
-              },
-              600
-            );
+                },
+                500
+              );
+            });
 
 
             return;
@@ -4145,9 +4854,7 @@ document.addEventListener(
           list.unshift({
 
             id:
-              `${Date.now()}-${Math.random()
-                .toString(36)
-                .slice(2, 8)}`,
+              Date.now(),
 
             ...data,
 
@@ -4175,6 +4882,12 @@ document.addEventListener(
 
 
           productForm.reset();
+          delete productForm.dataset.photoData;
+          const preview = document.querySelector('#p-photo-preview');
+          if (preview) {
+            preview.hidden = true;
+            preview.innerHTML = '';
+          }
 
         };
 
@@ -5059,6 +5772,7 @@ document.addEventListener(
   window.addEventListener('storage', event => {
     if (event.key === 'safralink_chats' || event.key === 'safralink_user') render();
   });
+  window.addEventListener('safralink:synced', render);
 })();
 
 /* =========================================================
@@ -5104,5 +5818,6 @@ document.addEventListener(
   window.addEventListener('storage', event => {
     if (event.key === 'safralink_chats' || event.key === 'safralink_user') updateChatDot();
   });
+  window.addEventListener('safralink:synced', updateChatDot);
 
 })();

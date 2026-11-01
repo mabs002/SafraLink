@@ -205,9 +205,19 @@
     const key = chatId(me, activeEmail);
 
     if (data[key] && data[key].unread) {
+      const hadUnread = Number(data[key].unread[emailOf(me)] || 0) > 0;
       data[key].unread[emailOf(me)] = 0;
       write(CHATS_KEY, data);
       updateChatNotification();
+      if (hadUnread && window.supabaseClient) {
+        window.supabaseClient
+          .from('mensagens')
+          .update({ lida: true })
+          .eq('conversa_chave', key)
+          .eq('destinatario_email', emailOf(me))
+          .eq('lida', false)
+          .then(() => {});
+      }
     }
 
     empty.hidden = true;
@@ -301,6 +311,22 @@
 
     fresh[key] = chat;
     write(CHATS_KEY, fresh);
+    if (window.supabaseClient) {
+      const senderEmail = emailOf(me);
+      const receiverEmail = activeEmail;
+      window.supabaseClient
+        .from('mensagens')
+        .insert({
+          remetente_id: typeof window.userIdByEmail === 'function' ? window.userIdByEmail(senderEmail) : null,
+          destinatario_id: typeof window.userIdByEmail === 'function' ? window.userIdByEmail(receiverEmail) : null,
+          conversa_chave: key,
+          remetente_email: senderEmail,
+          destinatario_email: receiverEmail,
+          texto: clean,
+          lida: false
+        })
+        .then(() => {});
+    }
     updateChatNotification();
     renderConversations();
     renderMessages();
@@ -351,6 +377,12 @@
       renderMessages();
       if (!$('#contact-modal').hidden) renderContacts();
     }
+  });
+
+  window.addEventListener('safralink:synced', () => {
+    renderConversations();
+    renderMessages();
+    if (!$('#contact-modal').hidden) renderContacts();
   });
 
   if (setupUser()) {
