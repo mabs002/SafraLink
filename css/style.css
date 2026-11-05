@@ -135,12 +135,22 @@ button {
 .avatar {
   width:38px;
   height:38px;
+  flex-shrink:0;
+  overflow:hidden;
   border-radius:50%;
   background:#b9d6aa;
   color:var(--green-900);
   display:grid;
   place-items:center;
   font-weight:800
+}
+
+.avatar img {
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  border-radius:50%;
+  display:block
 }
 
 .user-mini small {

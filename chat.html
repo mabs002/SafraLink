@@ -27,6 +27,7 @@
       <a href="transporte.html" data-seller-only><span class="nav-icon">🚚</span><span>Transporte</span></a>
       <a href="sobras.html" data-seller-only><span class="nav-icon">♻</span><span>Sobras</span></a>
       <a href="chat.html" class="active"><span class="nav-icon chat-nav-icon">💬<span class="chat-notification-dot" aria-label="Nova mensagem" hidden></span></span><span>Chat</span></a>
+      <a href="perfil.html" data-page="perfil"><span class="nav-icon">👤</span><span>Meu perfil</span></a>
     </nav>
 
     <div class="sidebar-bottom">
@@ -96,7 +97,8 @@
   (function () {
     try {
       const user = JSON.parse(localStorage.getItem('safralink_user') || 'null');
-      const isSeller = !!(user && (user.seller === true || user.tipo === 'vendedor' || user.role === 'seller' || user.perfil === 'vendedor'));
+      const roleVal = String(user && (user.role || user.perfil || user.tipo || '')).toLowerCase().trim();
+      const isSeller = !!(user && (user.seller === true || ['vendedor', 'seller', 'produtor rural', 'produtor'].includes(roleVal)));
       document.querySelectorAll('[data-seller-only]').forEach(el => {
         el.style.display = isSeller ? '' : 'none';
       });

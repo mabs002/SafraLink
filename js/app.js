@@ -72,8 +72,15 @@ function userIdByEmail(email) {
 window.userIdByEmail = userIdByEmail;
 
 function fromDbUser(row) {
-  const isAdmin = row.admin === true || String(row.perfil || '').toLowerCase() === 'admin';
-  const isSeller = !isAdmin && (row.vendedor === true || String(row.perfil || '').toLowerCase() === 'seller');
+  const perfilRaw = String(row.perfil || '').trim().toLowerCase();
+  const isAdmin = row.admin === true || perfilRaw === 'admin' || perfilRaw === 'administrador';
+  const isSeller = !isAdmin && (
+    row.vendedor === true ||
+    perfilRaw === 'seller' ||
+    perfilRaw === 'produtor rural' ||
+    perfilRaw === 'vendedor' ||
+    perfilRaw === 'produtor'
+  );
   return {
     id: row.id,
     name: row.nome || 'Usuário',
@@ -81,7 +88,7 @@ function fromDbUser(row) {
     password: row.senha || '',
     seller: isSeller,
     admin: isAdmin,
-    role: isAdmin ? 'admin' : isSeller ? 'seller' : 'buyer',
+    role: isAdmin ? 'admin' : isSeller ? 'produtor rural' : 'comprador',
     farm: row.propriedade || '',
     city: row.municipio || '',
     sellerDocumentType: row.tipo_documento || '',
@@ -107,15 +114,22 @@ function fromDbUser(row) {
 }
 
 function toDbUser(u) {
-  const isAdmin = u.admin === true || String(u.role || '').toLowerCase() === 'admin';
-  const isSeller = !isAdmin && (u.seller === true || String(u.role || '').toLowerCase() === 'seller');
+  const roleRaw = String(u.role || u.perfil || '').trim().toLowerCase();
+  const isAdmin = u.admin === true || roleRaw === 'admin' || roleRaw === 'administrador';
+  const isSeller = !isAdmin && (
+    u.seller === true ||
+    roleRaw === 'seller' ||
+    roleRaw === 'produtor rural' ||
+    roleRaw === 'vendedor' ||
+    roleRaw === 'produtor'
+  );
   return {
     nome: u.name || u.nome || 'Usuário',
     email: String(u.email || '').trim().toLowerCase(),
     senha: u.password || u.senha || '123456',
     vendedor: isSeller,
     admin: isAdmin,
-    perfil: isAdmin ? 'admin' : isSeller ? 'seller' : 'buyer',
+    perfil: isAdmin ? 'admin' : isSeller ? 'produtor rural' : 'comprador',
     propriedade: u.farm || u.farmName || '',
     municipio: u.city || '',
     tipo_documento: u.sellerDocumentType || u.documentType || '',
@@ -459,22 +473,40 @@ async function syncFromSupabase() {
     isApplyingRemoteSync = true;
 
     if (!usersRes.error && Array.isArray(usersRes.data)) {
+      // Migra automaticamente registros no banco que ainda estejam com 'buyer' ou 'seller' para português
+      usersRes.data.forEach(row => {
+        const p = String(row.perfil || '').trim().toLowerCase();
+        if (p === 'buyer' || p === 'seller') {
+          const novoPerfil = (row.vendedor === true || p === 'seller') ? 'produtor rural' : 'comprador';
+          row.perfil = novoPerfil;
+          if (validDbId(row.id)) {
+            supabaseClient.from('usuarios').update({ perfil: novoPerfil }).eq('id', Number(row.id)).then(() => {});
+          }
+        }
+      });
+
       const mappedUsers = usersRes.data.map(fromDbUser);
-      localStorage.setItem('safralink_users', JSON.stringify(mappedUsers));
       dbSnapshots.safralink_users = mappedUsers.map(u => ({ ...u }));
+      try { localStorage.setItem('safralink_users', JSON.stringify(mappedUsers)); } catch (_) {}
 
       const session = JSON.parse(localStorage.getItem('safralink_user') || 'null');
       if (session && session.email) {
         const freshUser = mappedUsers.find(u => u.email === String(session.email).toLowerCase());
         if (freshUser) {
           if (session.seller === true && !freshUser.seller) {
-            const upgraded = { ...freshUser, ...session, seller: true, role: 'seller' };
-            localStorage.setItem('safralink_user', JSON.stringify(upgraded));
+            const upgraded = {
+              ...freshUser,
+              ...session,
+              photoData: session.photoData || freshUser.photoData || '',
+              seller: true,
+              role: 'produtor rural'
+            };
+            try { localStorage.setItem('safralink_user', JSON.stringify(upgraded)); } catch (_) {}
             const idx = mappedUsers.findIndex(u => u.email === freshUser.email);
             if (idx >= 0) {
               mappedUsers[idx] = upgraded;
-              localStorage.setItem('safralink_users', JSON.stringify(mappedUsers));
               dbSnapshots.safralink_users = mappedUsers.map(u => ({ ...u }));
+              try { localStorage.setItem('safralink_users', JSON.stringify(mappedUsers)); } catch (_) {}
             }
             trackSupabaseOp(
               supabaseClient
@@ -484,7 +516,12 @@ async function syncFromSupabase() {
                 .single()
             );
           } else {
-            localStorage.setItem('safralink_user', JSON.stringify({ ...session, ...freshUser }));
+            const mergedSession = {
+              ...session,
+              ...freshUser,
+              photoData: freshUser.photoData || session.photoData || ''
+            };
+            try { localStorage.setItem('safralink_user', JSON.stringify(mergedSession)); } catch (_) {}
           }
         }
       }
@@ -527,53 +564,7 @@ async function syncFromSupabase() {
     }
 
     if (!messagesRes.error && Array.isArray(messagesRes.data)) {
-      let existingChats = {};
-      try { existingChats = JSON.parse(localStorage.getItem('safralink_chats') || '{}') || {}; } catch (_) { existingChats = {}; }
-      const rebuiltChats = {};
-
-      // Mantém conversas abertas que ainda não possuem mensagens
-      Object.entries(existingChats).forEach(([key, chat]) => {
-        if (chat && Array.isArray(chat.participants) && chat.participants.length === 2) {
-          rebuiltChats[key] = {
-            participants: chat.participants.map(e => String(e || '').toLowerCase().trim()),
-            messages: [],
-            unread: {},
-            createdAt: chat.createdAt || Date.now(),
-            updatedAt: chat.updatedAt || Date.now()
-          };
-        }
-      });
-
-      messagesRes.data.forEach(row => {
-        const sender = String(row.remetente_email || '').toLowerCase().trim();
-        const receiver = String(row.destinatario_email || '').toLowerCase().trim();
-        if (!sender || !receiver) return;
-        const key = row.conversa_chave || [sender, receiver].sort().join('::');
-        const ts = row.criado_em ? new Date(row.criado_em).getTime() : Date.now();
-        if (!rebuiltChats[key]) {
-          rebuiltChats[key] = {
-            participants: [sender, receiver].sort(),
-            messages: [],
-            unread: {},
-            createdAt: ts,
-            updatedAt: ts
-          };
-        }
-        rebuiltChats[key].messages.push({
-          id: 'msg_' + row.id,
-          dbId: row.id,
-          sender,
-          receiver,
-          text: row.texto || '',
-          createdAt: ts
-        });
-        rebuiltChats[key].updatedAt = Math.max(rebuiltChats[key].updatedAt || 0, ts);
-        if (!row.lida) {
-          rebuiltChats[key].unread[receiver] = (rebuiltChats[key].unread[receiver] || 0) + 1;
-        }
-      });
-
-      localStorage.setItem('safralink_chats', JSON.stringify(rebuiltChats));
+      applyRemoteMessages(messagesRes.data);
     }
 
     isApplyingRemoteSync = false;
@@ -606,6 +597,122 @@ async function syncFromSupabase() {
   }
 }
 window.syncFromSupabase = syncFromSupabase;
+
+function applyRemoteMessages(rows) {
+  let existingChats = {};
+  try { existingChats = JSON.parse(localStorage.getItem('safralink_chats') || '{}') || {}; } catch (_) { existingChats = {}; }
+  const rebuiltChats = {};
+
+  // Mantém conversas abertas que ainda não possuem mensagens
+  Object.entries(existingChats).forEach(([key, chat]) => {
+    if (chat && Array.isArray(chat.participants) && chat.participants.length === 2) {
+      rebuiltChats[key] = {
+        participants: chat.participants.map(e => String(e || '').toLowerCase().trim()),
+        messages: [],
+        unread: {},
+        createdAt: chat.createdAt || Date.now(),
+        updatedAt: chat.updatedAt || Date.now()
+      };
+    }
+  });
+
+  (Array.isArray(rows) ? rows : []).forEach(row => {
+    const sender = String(row.remetente_email || '').toLowerCase().trim();
+    const receiver = String(row.destinatario_email || '').toLowerCase().trim();
+    if (!sender || !receiver) return;
+    const key = row.conversa_chave || [sender, receiver].sort().join('::');
+    const ts = row.criado_em ? new Date(row.criado_em).getTime() : Date.now();
+    if (!rebuiltChats[key]) {
+      rebuiltChats[key] = {
+        participants: [sender, receiver].sort(),
+        messages: [],
+        unread: {},
+        createdAt: ts,
+        updatedAt: ts
+      };
+    }
+    rebuiltChats[key].messages.push({
+      id: 'msg_' + row.id,
+      dbId: row.id,
+      sender,
+      receiver,
+      text: row.texto || '',
+      createdAt: ts
+    });
+    rebuiltChats[key].updatedAt = Math.max(rebuiltChats[key].updatedAt || 0, ts);
+    if (!row.lida) {
+      rebuiltChats[key].unread[receiver] = (rebuiltChats[key].unread[receiver] || 0) + 1;
+    }
+  });
+
+  // Cria uma assinatura das mensagens e status de leitura para detectar se houve mudança real
+  const buildSignature = (chatsObj) => Object.keys(chatsObj || {}).sort().map(k => {
+    const c = chatsObj[k] || {};
+    const msgs = Array.isArray(c.messages) ? c.messages.map(m => `${m.dbId || m.id}:${m.text}`).join('|') : '';
+    const unread = JSON.stringify(c.unread || {});
+    return `${k}#${msgs}#${unread}`;
+  }).join(';;');
+
+  const changed = buildSignature(existingChats) !== buildSignature(rebuiltChats);
+  try { localStorage.setItem('safralink_chats', JSON.stringify(rebuiltChats)); } catch (_) {}
+  return changed;
+}
+
+let isSyncingMessagesOnly = false;
+async function syncChatMessagesOnly() {
+  if (!supabaseClient || isSyncingMessagesOnly) return;
+  isSyncingMessagesOnly = true;
+  try {
+    const { data, error } = await supabaseClient
+      .from('mensagens')
+      .select('*')
+      .order('criado_em', { ascending: true });
+    if (!error && Array.isArray(data)) {
+      // Se existir mensagem de algum usuário ainda não presente em safralink_users, sincroniza usuários também
+      const knownEmails = new Set(getUsers().map(u => String(u.email || '').toLowerCase().trim()));
+      const hasUnknownUser = data.some(r => {
+        const s = String(r.remetente_email || '').toLowerCase().trim();
+        const d = String(r.destinatario_email || '').toLowerCase().trim();
+        return (s && !knownEmails.has(s)) || (d && !knownEmails.has(d));
+      });
+      if (hasUnknownUser) {
+        const usersRes = await supabaseClient.from('usuarios').select('*').order('id', { ascending: true });
+        if (!usersRes.error && Array.isArray(usersRes.data)) {
+          const mappedUsers = usersRes.data.map(fromDbUser);
+          dbSnapshots.safralink_users = mappedUsers.map(u => ({ ...u }));
+          try { localStorage.setItem('safralink_users', JSON.stringify(mappedUsers)); } catch (_) {}
+        }
+      }
+      const changed = applyRemoteMessages(data);
+      if (changed) {
+        window.dispatchEvent(new CustomEvent('safralink:synced'));
+      }
+    }
+  } catch (_) {
+  } finally {
+    isSyncingMessagesOnly = false;
+  }
+}
+window.syncChatMessagesOnly = syncChatMessagesOnly;
+
+if (supabaseClient) {
+  try {
+    supabaseClient
+      .channel('safralink-mensagens-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'mensagens' },
+        () => { syncChatMessagesOnly(); }
+      )
+      .subscribe();
+  } catch (_) {}
+
+  setInterval(() => {
+    if (document.visibilityState !== 'hidden') {
+      syncChatMessagesOnly();
+    }
+  }, 2000);
+}
 
 
 /* =========================================================
@@ -706,7 +813,12 @@ function getUser() {
       String(item.email || '').toLowerCase() === String(session.email || '').toLowerCase() ||
       (item.id != null && session.id != null && String(item.id) === String(session.id))
     );
-    return current ? {...session, ...current} : session;
+    if (!current) return session;
+    const merged = { ...session, ...current };
+    if (!merged.photoData) {
+      merged.photoData = current.photoData || session.photoData || '';
+    }
+    return merged;
   } catch (error) { return null; }
 }
 
@@ -721,15 +833,22 @@ function getUsers() {
     const saved =
       localStorage.getItem('safralink_users');
 
-    if (!saved) return [];
+    if (saved) {
+      const list = JSON.parse(saved);
+      if (Array.isArray(list) && list.length) return list;
+    }
 
-    const list = JSON.parse(saved);
+    if (Array.isArray(dbSnapshots.safralink_users) && dbSnapshots.safralink_users.length) {
+      return dbSnapshots.safralink_users.map(u => ({ ...u }));
+    }
 
-    return Array.isArray(list) ? list : [];
+    return [];
 
   } catch (error) {
 
-    return [];
+    return Array.isArray(dbSnapshots.safralink_users)
+      ? dbSnapshots.safralink_users.map(u => ({ ...u }))
+      : [];
 
   }
 
@@ -743,10 +862,12 @@ function getUsers() {
 function saveUsers(users) {
 
   const clean = Array.isArray(users) ? users : [];
-  localStorage.setItem(
-    'safralink_users',
-    JSON.stringify(clean)
-  );
+  try {
+    localStorage.setItem(
+      'safralink_users',
+      JSON.stringify(clean)
+    );
+  } catch (_) {}
   syncStorageKeyWithSupabase('safralink_users', clean);
 
 }
@@ -757,10 +878,12 @@ function saveUsers(users) {
 */
 function saveUser(user) {
 
-  localStorage.setItem(
-    'safralink_user',
-    JSON.stringify(user)
-  );
+  try {
+    localStorage.setItem(
+      'safralink_user',
+      JSON.stringify(user)
+    );
+  } catch (_) {}
   if (supabaseClient && !isApplyingRemoteSync && user && user.email) {
     trackSupabaseOp(
       supabaseClient
@@ -861,79 +984,6 @@ function setupShell() {
 
 
   /*
-     Nome do usuário.
-  */
-  document
-    .querySelectorAll('[data-user-name]')
-    .forEach(element => {
-
-      element.textContent =
-        user?.name || 'Usuário';
-
-    });
-
-
-  /*
-     Tipo da conta.
-  */
-  document
-    .querySelectorAll('[data-user-role]')
-    .forEach(element => {
-
-      element.textContent =
-        user?.seller
-          ? 'Vendedora / Produtora'
-          : 'Compradora';
-
-    });
-
-
-  /*
-     Inicial do usuário.
-  */
-  document
-    .querySelectorAll('[data-initials]')
-    .forEach(element => {
-
-      element.textContent =
-        initials(user?.name || 'Usuário');
-
-    });
-
-
-  /*
-     Mostra ou esconde funções exclusivas
-     do vendedor.
-  */
-  document
-    .querySelectorAll('[data-seller-only]')
-    .forEach(element => {
-
-      element.style.display =
-        user?.seller
-          ? ''
-          : 'none';
-
-    });
-
-
-  /*
-     Mostra "Quero vender" somente
-     para compradores.
-  */
-  document
-    .querySelectorAll('[data-buyer-only]')
-    .forEach(element => {
-
-      element.style.display =
-        user?.seller
-          ? 'none'
-          : '';
-
-    });
-
-
-  /*
      Localiza a sidebar.
   */
   const sidebar =
@@ -960,7 +1010,8 @@ function setupShell() {
   /*
      Se estivermos em uma página interna
      e houver usuário logado, garantimos
-     que a área do usuário exista.
+     que a área do usuário exista antes de preencher
+     nome, função e foto/iniciais.
   */
   if (sidebar && user) {
 
@@ -997,7 +1048,7 @@ function setupShell() {
 
           <div class="user-mini">
 
-            <div class="avatar ${user.photoData ? 'has-photo' : ''}" data-initials>${user.photoData ? `<img src="${user.photoData}" alt="Foto de perfil" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : initials(user.name || 'Usuário')}</div>
+            <div class="avatar ${user.photoData ? 'has-photo' : ''}" data-initials>${user.photoData ? `<img src="${user.photoData}" alt="Foto de perfil" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block">` : initials(user.name || 'Usuário')}</div>
 
             <div>
 
@@ -1008,8 +1059,8 @@ function setupShell() {
               <small data-user-role>
                 ${
                   user.seller
-                    ? 'Vendedora / Produtora'
-                    : 'Compradora'
+                    ? 'Produtor rural'
+                    : 'Comprador'
                 }
               </small>
 
@@ -1020,6 +1071,11 @@ function setupShell() {
         `
       );
 
+    } else {
+      const miniAvatar = userArea.querySelector('.user-mini .avatar');
+      if (miniAvatar && !miniAvatar.hasAttribute('data-initials')) {
+        miniAvatar.setAttribute('data-initials', '');
+      }
     }
 
 
@@ -1067,6 +1123,89 @@ function setupShell() {
       });
 
   }
+
+
+  /*
+     Nome do usuário.
+  */
+  document
+    .querySelectorAll('[data-user-name]')
+    .forEach(element => {
+
+      element.textContent =
+        user?.name || 'Usuário';
+
+    });
+
+
+  /*
+     Tipo da conta.
+  */
+  document
+    .querySelectorAll('[data-user-role]')
+    .forEach(element => {
+
+      element.textContent =
+        user?.seller
+          ? 'Produtor rural'
+          : 'Comprador';
+
+    });
+
+
+  /*
+     Foto de perfil ou iniciais do usuário.
+  */
+  document
+    .querySelectorAll('[data-initials]')
+    .forEach(element => {
+
+      const pendingPhoto = element.dataset?.pending;
+      const photo = pendingPhoto || user?.photoData || '';
+
+      if (photo) {
+        element.innerHTML =
+          `<img src="${photo}" alt="Foto de perfil" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block">`;
+        element.classList.add('has-photo');
+      } else {
+        element.textContent =
+          initials(user?.name || 'Usuário');
+        element.classList.remove('has-photo');
+      }
+
+    });
+
+
+  /*
+     Mostra ou esconde funções exclusivas
+     do vendedor.
+  */
+  document
+    .querySelectorAll('[data-seller-only]')
+    .forEach(element => {
+
+      element.style.display =
+        user?.seller
+          ? ''
+          : 'none';
+
+    });
+
+
+  /*
+     Mostra "Quero vender" somente
+     para compradores.
+  */
+  document
+    .querySelectorAll('[data-buyer-only]')
+    .forEach(element => {
+
+      element.style.display =
+        user?.seller
+          ? 'none'
+          : '';
+
+    });
 
 
   /*
@@ -4304,6 +4443,9 @@ document.addEventListener(
             seller:
               false,
 
+            role:
+              'comprador',
+
             farm:
               '',
 
@@ -4413,7 +4555,7 @@ document.addEventListener(
             document.querySelector(id)?.value?.trim() || '';
 
           user.seller = true;
-          user.role = 'seller';
+          user.role = 'produtor rural';
           user.name = value('#seller-account-name') || user.name || '';
           user.farm = value('#seller-name');
           user.city = value('#seller-city');
@@ -4449,9 +4591,9 @@ document.addEventListener(
           );
 
           if (index >= 0) {
-            users[index] = { ...users[index], ...user, seller: true, role: 'seller' };
+            users[index] = { ...users[index], ...user, seller: true, role: 'produtor rural' };
           } else {
-            users.push({ ...user, seller: true, role: 'seller' });
+            users.push({ ...user, seller: true, role: 'produtor rural' });
           }
           saveUsers(users);
 
@@ -4523,6 +4665,7 @@ document.addEventListener(
           email,
           password,
           seller: true,
+          role: 'produtor rural',
           farm,
           city,
           sellerDocumentType: documentType,
@@ -4561,20 +4704,36 @@ document.addEventListener(
         '#product-form'
       );
 
+    function setProductPhotoPreview(dataUrl) {
+      const preview = document.querySelector('#p-photo-preview');
+      let removeBtn = document.querySelector('#p-photo-remove');
+      if (!removeBtn && preview && preview.parentElement) {
+        removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.id = 'p-photo-remove';
+        removeBtn.className = 'btn btn-danger';
+        removeBtn.style.marginTop = '10px';
+        removeBtn.textContent = '🗑️ Excluir foto';
+        preview.insertAdjacentElement('afterend', removeBtn);
+      }
+      if (dataUrl) {
+        if (preview) {
+          preview.hidden = false;
+          preview.innerHTML = `<img src="${dataUrl}" alt="Foto do produto">`;
+        }
+        if (removeBtn) removeBtn.hidden = false;
+      } else {
+        if (preview) {
+          preview.hidden = true;
+          preview.innerHTML = '';
+        }
+        if (removeBtn) removeBtn.hidden = true;
+      }
+    }
+
 
     if (productForm) {
 
-      const user =
-        getUser();
-
-
-      /*
-         Verifica se existe ID na URL.
-
-         Exemplo:
-
-         cadastro-produto.html?id=123
-      */
       const params =
         new URLSearchParams(
           location.search
@@ -4589,8 +4748,9 @@ document.addEventListener(
          Se existir ID, carregamos
          o produto para edição.
       */
-      if (editId) {
-
+      const populateEditingProduct = () => {
+        if (!editId) return;
+        const currentUser = getUser();
         const product =
           products().find(
             item =>
@@ -4598,81 +4758,52 @@ document.addEventListener(
               String(editId)
           );
 
-
-        /*
-           Só permite editar o próprio produto.
-        */
         if (
           product &&
-          user?.seller &&
+          currentUser?.seller &&
           product.sellerEmail ===
-            user.email
+            currentUser.email
         ) {
+          if (!productForm.dataset.userEdited) {
+            document.querySelector('#p-name').value = product.name;
+            document.querySelector('#p-type').value = product.type;
+            document.querySelector('#p-qty').value = product.qty;
+            document.querySelector('#p-price').value = product.price;
+            document.querySelector('#p-location').value = product.location;
 
-          document.querySelector(
-            '#p-name'
-          ).value =
-            product.name;
-
-
-          document.querySelector(
-            '#p-type'
-          ).value =
-            product.type;
-
-
-          document.querySelector(
-            '#p-qty'
-          ).value =
-            product.qty;
-
-
-          document.querySelector(
-            '#p-price'
-          ).value =
-            product.price;
-
-
-          document.querySelector(
-            '#p-location'
-          ).value =
-            product.location;
-
-          const descriptionField = document.querySelector('#p-description');
-          const unitField = document.querySelector('#p-unit');
-          const minOrderField = document.querySelector('#p-min-order');
-          if (descriptionField) descriptionField.value = product.description || '';
-          if (unitField) unitField.value = product.unit || '';
-          if (minOrderField) minOrderField.value = product.minOrder || '';
-
-          if (product.photoData) {
-            const preview = document.querySelector('#p-photo-preview');
-            if (preview) {
-              preview.hidden = false;
-              preview.innerHTML = `<img src="${product.photoData}" alt="Foto atual do produto">`;
-            }
+            const descriptionField = document.querySelector('#p-description');
+            const unitField = document.querySelector('#p-unit');
+            const minOrderField = document.querySelector('#p-min-order');
+            if (descriptionField) descriptionField.value = product.description || '';
+            if (unitField) unitField.value = product.unit || '';
+            if (minOrderField) minOrderField.value = product.minOrder || '';
           }
 
+          if (productForm.dataset.photoRemoved !== 'true' && !productForm.dataset.photoData) {
+            setProductPhotoPreview(product.photoData || '');
+          }
 
           productForm.dataset.editingId =
             product.id;
-
 
           const submit =
             productForm.querySelector(
               'button[type="submit"]'
             );
 
-
           if (submit) {
-
             submit.textContent =
               'Salvar alterações';
-
           }
-
         }
+      };
 
+      if (editId) {
+        productForm.addEventListener('input', () => {
+          productForm.dataset.userEdited = 'true';
+        }, { once: true });
+        populateEditingProduct();
+        window.addEventListener('safralink:synced', populateEditingProduct);
       }
 
 
@@ -4808,7 +4939,9 @@ document.addEventListener(
               ...data,
 
               photoData:
-                data.photoData || list[index].photoData || '',
+                productForm.dataset.photoRemoved === 'true'
+                  ? ''
+                  : (data.photoData || list[index].photoData || ''),
 
               seller:
                 currentUser.farm ||
@@ -4883,11 +5016,8 @@ document.addEventListener(
 
           productForm.reset();
           delete productForm.dataset.photoData;
-          const preview = document.querySelector('#p-photo-preview');
-          if (preview) {
-            preview.hidden = true;
-            preview.innerHTML = '';
-          }
+          delete productForm.dataset.photoRemoved;
+          setProductPhotoPreview('');
 
         };
 
@@ -4903,14 +5033,38 @@ document.addEventListener(
         reader.onload = () => {
           const dataUrl = String(reader.result || '');
           const form = document.querySelector('#product-form');
-          if (form) form.dataset.photoData = dataUrl;
-          const preview = document.querySelector('#p-photo-preview');
-          if (preview) {
-            preview.hidden = false;
-            preview.innerHTML = `<img src="${dataUrl}" alt="Pré-visualização do produto">`;
+          if (form) {
+            form.dataset.photoData = dataUrl;
+            delete form.dataset.photoRemoved;
           }
+          setProductPhotoPreview(dataUrl);
         };
         reader.readAsDataURL(file);
+      });
+    }
+
+    const productPhotoRemoveBtn = document.querySelector('#p-photo-remove');
+    if (productPhotoRemoveBtn) {
+      productPhotoRemoveBtn.addEventListener('click', () => {
+        const form = document.querySelector('#product-form');
+        const fileInput = document.querySelector('#p-photo');
+        if (fileInput) fileInput.value = '';
+        if (form) {
+          delete form.dataset.photoData;
+          form.dataset.photoRemoved = 'true';
+          const editingId = form.dataset.editingId;
+          if (editingId) {
+            const currentUser = getUser();
+            const list = products();
+            const idx = list.findIndex(p => String(p.id) === String(editingId));
+            if (idx >= 0 && (!currentUser?.email || list[idx].sellerEmail === currentUser.email)) {
+              list[idx] = { ...list[idx], photoData: '' };
+              saveProducts(list);
+            }
+          }
+        }
+        setProductPhotoPreview('');
+        toast('Foto do produto excluída!');
       });
     }
 
@@ -5623,22 +5777,83 @@ document.addEventListener(
         documentPhoto: document.querySelector('#profile-document-photo'), documentName: document.querySelector('#profile-document-name'), sellerBox: document.querySelector('#seller-profile-fields')
       };
       const setVal=(el,val)=>{if(el) el.value=val??''};
-      setVal(fields.name,user.name); setVal(fields.email,user.email); setVal(fields.phone,user.phone); setVal(fields.document,user.document);
-      setVal(fields.documentType,user.documentType); setVal(fields.birth,user.birth); setVal(fields.cep,user.cep); setVal(fields.address,user.address); setVal(fields.city,user.city);
-      setVal(fields.farm,user.farm); setVal(fields.production,user.sellerProduction || user.productionType); setVal(fields.description,user.sellerDescription || user.activityDescription);
-      if (fields.sellerBox) fields.sellerBox.hidden=!user.seller;
-      if (fields.photoPreview) {
-        fields.photoPreview.innerHTML = user.photoData ? `<img src="${user.photoData}" alt="Foto de perfil">` : escapeHtml(initials(user.name||'Usuário'));
-        fields.photoPreview.classList.toggle('has-photo',!!user.photoData);
-      }
+      const fillProfileFields = (u) => {
+        setVal(fields.name,u.name); setVal(fields.email,u.email); setVal(fields.phone,u.phone); setVal(fields.document,u.document);
+        setVal(fields.documentType,u.documentType); setVal(fields.birth,u.birth); setVal(fields.cep,u.cep); setVal(fields.address,u.address); setVal(fields.city,u.city);
+        setVal(fields.farm,u.farm); setVal(fields.production,u.sellerProduction || u.productionType); setVal(fields.description,u.sellerDescription || u.activityDescription);
+        if (fields.sellerBox) fields.sellerBox.hidden=!u.seller;
+        if (fields.photoPreview) {
+          const activePhoto = fields.photoPreview.dataset.pending || u.photoData || '';
+          fields.photoPreview.innerHTML = activePhoto ? `<img src="${activePhoto}" alt="Foto de perfil" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block">` : escapeHtml(initials(u.name||'Usuário'));
+          fields.photoPreview.classList.toggle('has-photo',!!activePhoto);
+        }
+      };
+      fillProfileFields(user);
+
+      window.addEventListener('safralink:synced', () => {
+        const syncedUser = getUser();
+        if (syncedUser) {
+          user = syncedUser;
+          fillProfileFields(user);
+          setupShell();
+        }
+      });
+
+      const compressProfileImage = (dataUrl) => new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const maxDim = 400;
+            let w = img.width || maxDim;
+            let h = img.height || maxDim;
+            if (w > maxDim || h > maxDim) {
+              if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+              else { w = Math.round((w * maxDim) / h); h = maxDim; }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', 0.85));
+          } catch (_) {
+            resolve(dataUrl);
+          }
+        };
+        img.onerror = () => resolve(dataUrl);
+        img.src = dataUrl;
+      });
+
       if (fields.photo) fields.photo.onchange=()=>{
         const file=fields.photo.files?.[0]; if(!file)return;
         if(file.size>2*1024*1024){alert('A foto deve ter no máximo 2 MB.');fields.photo.value='';return;}
-        const reader=new FileReader(); reader.onload=()=>{fields.photoPreview.innerHTML=`<img src="${reader.result}" alt="Foto de perfil">`;fields.photoPreview.classList.add('has-photo');fields.photoPreview.dataset.pending=reader.result;}; reader.readAsDataURL(file);
+        const reader=new FileReader();
+        reader.onload=async ()=>{
+          const finalPhoto = await compressProfileImage(String(reader.result || ''));
+          if (fields.photoPreview) {
+            fields.photoPreview.innerHTML=`<img src="${finalPhoto}" alt="Foto de perfil" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block">`;
+            fields.photoPreview.classList.add('has-photo');
+            fields.photoPreview.dataset.pending=finalPhoto;
+          }
+          const current = getUser() || user || {};
+          const users = getUsers();
+          const emailKey = String(current.email || '').toLowerCase();
+          const idx = users.findIndex(u => String(u.email || '').toLowerCase() === emailKey || (u.id != null && current.id != null && String(u.id) === String(current.id)));
+          const updatedPhotoUser = { ...(idx >= 0 ? users[idx] : {}), ...current, photoData: finalPhoto };
+          if (idx >= 0) {
+            users[idx] = updatedPhotoUser;
+            saveUsers(users);
+          }
+          saveUser(updatedPhotoUser);
+          user = updatedPhotoUser;
+          setupShell();
+        };
+        reader.readAsDataURL(file);
       };
       if (fields.documentPhoto) fields.documentPhoto.onchange=()=>{ const f=fields.documentPhoto.files?.[0]; if(f&&fields.documentName) fields.documentName.textContent=f.name; };
       profileForm.onsubmit=event=>{
         event.preventDefault();
+        user = getUser() || user || {};
         const newEmail=String(fields.email?.value||'').trim().toLowerCase();
         const newPassword=String(fields.password?.value||'');
         if(newPassword && newPassword!==String(fields.passwordConfirm?.value||'')){toast('As senhas não conferem.');return;}
@@ -5646,18 +5861,19 @@ document.addEventListener(
         const idx=users.findIndex(u=>String(u.email||'').toLowerCase()===oldEmail || (u.id!=null&&user.id!=null&&String(u.id)===String(user.id)));
         if(idx<0){toast('Conta não encontrada.');return;}
         if(newEmail!==oldEmail && users.some((u,i)=>i!==idx&&String(u.email||'').toLowerCase()===newEmail)){toast('Este e-mail já está em uso.');return;}
+        const pendingPhoto=fields.photoPreview?.dataset.pending;
+        const resolvedPhoto=pendingPhoto || user.photoData || users[idx].photoData || '';
         const updated={...users[idx], ...user,
           name:String(fields.name?.value||'').trim(), email:newEmail, phone:String(fields.phone?.value||'').trim(),
           document:String(fields.document?.value||'').trim(), documentType:fields.documentType?.value||'', birth:fields.birth?.value||'', cep:String(fields.cep?.value||'').trim(),
-          address:String(fields.address?.value||'').trim(), city:String(fields.city?.value||'').trim()
+          address:String(fields.address?.value||'').trim(), city:String(fields.city?.value||'').trim(),
+          photoData:resolvedPhoto
         };
         if(fields.sellerBox && user.seller){ updated.farm=String(fields.farm?.value||'').trim(); updated.sellerProduction=fields.production?.value||''; updated.productionType=fields.production?.value||''; updated.sellerDescription=String(fields.description?.value||'').trim(); updated.activityDescription=updated.sellerDescription; }
         if(newPassword) updated.password=newPassword;
-        const pendingPhoto=fields.photoPreview?.dataset.pending; if(pendingPhoto) updated.photoData=pendingPhoto;
+        if(fields.photoPreview) delete fields.photoPreview.dataset.pending;
         users[idx]=updated; saveUsers(users); saveUser(updated); user=updated;
         setupShell();
-        document.querySelectorAll('[data-initials]').forEach(el=>{if(!updated.photoData)el.textContent=initials(updated.name||'Usuário');});
-        if(fields.photoPreview && updated.photoData){fields.photoPreview.innerHTML=`<img src="${updated.photoData}" alt="Foto de perfil">`;fields.photoPreview.classList.add('has-photo');}
         if(fields.password) fields.password.value=''; if(fields.passwordConfirm) fields.passwordConfirm.value='';
         toast('Perfil atualizado com sucesso!');
       };

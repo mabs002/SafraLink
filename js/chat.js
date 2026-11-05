@@ -11,12 +11,12 @@
   const CHATS_KEY = 'safralink_chats';
 
   const demoContacts = [
-    {email:'demo1@safralink.com',name:'Sítio Boa Terra',seller:true,role:'Vendedor / Produtor'},
-    {email:'demo2@safralink.com',name:'Produtor João',seller:true,role:'Vendedor / Produtor'},
-    {email:'demo3@safralink.com',name:'Horta da Ana',seller:true,role:'Vendedora / Produtora'},
-    {email:'demo4@safralink.com',name:'Sítio Verde',seller:true,role:'Vendedor / Produtor'},
-    {email:'demo5@safralink.com',name:'Família Souza',seller:true,role:'Vendedor / Produtor'},
-    {email:'demo6@safralink.com',name:'Chácara do Vale',seller:true,role:'Vendedor / Produtor'}
+    {email:'demo1@safralink.com',name:'Sítio Boa Terra',seller:true,role:'Produtor rural'},
+    {email:'demo2@safralink.com',name:'Produtor João',seller:true,role:'Produtor rural'},
+    {email:'demo3@safralink.com',name:'Horta da Ana',seller:true,role:'Produtor rural'},
+    {email:'demo4@safralink.com',name:'Sítio Verde',seller:true,role:'Produtor rural'},
+    {email:'demo5@safralink.com',name:'Família Souza',seller:true,role:'Produtor rural'},
+    {email:'demo6@safralink.com',name:'Chácara do Vale',seller:true,role:'Produtor rural'}
   ];
 
   const $ = s => document.querySelector(s);
@@ -37,12 +37,23 @@
       ? users.find(u => emailOf(u) === sessionEmail)
       : null;
 
-    return registered ? { ...registered, ...session } : session;
+    if (!registered) return session;
+    const merged = { ...session, ...registered };
+    if (!merged.photoData) {
+      merged.photoData = registered.photoData || session.photoData || '';
+    }
+    return merged;
   };
   const emailOf = u => String((u && u.email) || u || '').toLowerCase().trim();
   const nameOf = u => String((u && (u.name || u.nome || u.fullName || u.username)) || 'Usuário');
   const initials = name => String(name || 'Usuário').trim().split(/\s+/).slice(0,2).map(x=>x[0]).join('').toUpperCase() || 'U';
-  const roleOf = u => u && (u.seller === true || u.tipo === 'vendedor' || u.role === 'seller' || u.perfil === 'vendedor') ? 'Vendedor / Produtor' : 'Comprador';
+  const isSellerAccount = u => {
+    if (!u) return false;
+    if (u.seller === true) return true;
+    const vals = [u.tipo, u.role, u.perfil].map(v => String(v || '').toLowerCase().trim());
+    return vals.some(v => ['vendedor', 'seller', 'produtor rural', 'produtor'].includes(v));
+  };
+  const roleOf = u => isSellerAccount(u) ? 'Produtor rural' : 'Comprador';
   const chatId = (a,b) => [emailOf(a),emailOf(b)].sort().join('::');
 
   let activeEmail = null;
@@ -55,7 +66,7 @@
     [...registered, ...demoContacts].forEach(c => {
       const e = emailOf(c);
       if (!e || e === myEmail || map.has(e)) return;
-      map.set(e, {...c, name:nameOf(c), role:c.role || roleOf(c)});
+      map.set(e, {...c, name:nameOf(c), role:roleOf(c)});
     });
     return [...map.values()];
   }
@@ -108,7 +119,23 @@
   function setupUser() {
     const me = currentUser();
     if (!me) { window.location.href = 'index.html'; return false; }
-    $('#sidebar-initials').textContent = initials(nameOf(me));
+    const nav = document.querySelector('.sidebar .nav');
+    if (nav && !nav.querySelector('a[href="perfil.html"]')) {
+      nav.insertAdjacentHTML(
+        'beforeend',
+        `<a href="perfil.html" data-page="perfil"><span class="nav-icon">👤</span><span>Meu perfil</span></a>`
+      );
+    }
+    const avatarEl = $('#sidebar-initials');
+    if (avatarEl) {
+      if (me.photoData) {
+        avatarEl.innerHTML = `<img src="${me.photoData}" alt="Foto de perfil" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block">`;
+        avatarEl.classList.add('has-photo');
+      } else {
+        avatarEl.textContent = initials(nameOf(me));
+        avatarEl.classList.remove('has-photo');
+      }
+    }
     $('#sidebar-name').textContent = nameOf(me);
     $('#sidebar-role').textContent = roleOf(me);
     return true;
@@ -224,20 +251,28 @@
     active.hidden = false;
     $('#contact-avatar').textContent = initials(contact.name);
     $('#contact-name').textContent = contact.name;
-    $('#contact-role').textContent = contact.role || roleOf(contact);
+    $('#contact-role').textContent = roleOf(contact);
     
     const messages = chat.messages || [];
+    const messagesEl = $('#messages');
     if (!messages.length) {
-      $('#messages').innerHTML = '<div class="chat-empty-conversations">Conversa salva. Envie a primeira mensagem para começar.</div>';
+      const emptyHtml = '<div class="chat-empty-conversations">Conversa salva. Envie a primeira mensagem para começar.</div>';
+      if (messagesEl.innerHTML !== emptyHtml) {
+        messagesEl.innerHTML = emptyHtml;
+      }
       return;
     }
 
-    $('#messages').innerHTML = messages.map(m => `
+    const nextHtml = messages.map(m => `
       <div class="message ${m.sender === emailOf(me) ? 'mine' : 'theirs'}">
         <div class="message-bubble">${escapeHTML(m.text)}<span class="message-meta">${time(m.createdAt)}</span></div>
       </div>`).join('');
 
-    requestAnimationFrame(() => { $('#messages').scrollTop = $('#messages').scrollHeight; });
+    if (messagesEl.dataset.renderedSig !== nextHtml) {
+      messagesEl.dataset.renderedSig = nextHtml;
+      messagesEl.innerHTML = nextHtml;
+      requestAnimationFrame(() => { messagesEl.scrollTop = messagesEl.scrollHeight; });
+    }
   }
 
   function openConversation(email) {
@@ -263,7 +298,7 @@
     list.innerHTML = contacts.map(c => `
       <div class="contact" data-email="${escapeHTML(c.email)}">
         <div class="avatar">${escapeHTML(initials(c.name))}</div>
-        <div class="contact-body"><strong>${escapeHTML(c.name)}</strong><span>${escapeHTML(c.role || roleOf(c))}</span></div>
+        <div class="contact-body"><strong>${escapeHTML(c.name)}</strong><span>${escapeHTML(roleOf(c))}</span></div>
       </div>`).join('');
 
     list.querySelectorAll('.contact').forEach(el => {
@@ -372,7 +407,8 @@
   });
 
   window.addEventListener('storage', e => {
-    if (e.key === CHATS_KEY || e.key === USERS_KEY) {
+    if (e.key === CHATS_KEY || e.key === USERS_KEY || e.key === SESSION_KEY) {
+      setupUser();
       renderConversations();
       renderMessages();
       if (!$('#contact-modal').hidden) renderContacts();
@@ -380,6 +416,7 @@
   });
 
   window.addEventListener('safralink:synced', () => {
+    setupUser();
     renderConversations();
     renderMessages();
     if (!$('#contact-modal').hidden) renderContacts();

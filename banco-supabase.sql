@@ -15,7 +15,7 @@ CREATE TABLE usuarios (
     senha VARCHAR(150) NOT NULL,
     vendedor BOOLEAN DEFAULT FALSE,
     admin BOOLEAN DEFAULT FALSE,
-    perfil VARCHAR(50) DEFAULT 'buyer',
+    perfil VARCHAR(50) DEFAULT 'comprador',
     propriedade VARCHAR(150),
     municipio VARCHAR(150),
     tipo_documento VARCHAR(20),
@@ -226,13 +226,13 @@ CREATE TABLE mensagens (
 INSERT INTO usuarios
 (nome, email, senha, vendedor, admin, perfil, propriedade, municipio, tipo_producao, descricao_atividade, telefone)
 VALUES
-('Sítio Boa Terra', 'demo1@safralink.com', '123456', TRUE, FALSE, 'seller', 'Sítio Boa Terra', 'Itapetininga - SP', 'Hortaliças', 'Hortaliças e produtos frescos colhidos diariamente.', '(15) 99111-1111'),
-('Produtor João', 'demo2@safralink.com', '123456', TRUE, FALSE, 'seller', 'Sítio São João', 'Tatuí - SP', 'Cereais', 'Produção tradicional de milho verde e grãos.', '(15) 99222-2222'),
-('Horta da Ana', 'demo3@safralink.com', '123456', TRUE, FALSE, 'seller', 'Horta da Ana', 'Itapetininga - SP', 'Hortaliças', 'Folhosas hidropônicas e orgânicas.', '(15) 99333-3333'),
-('Sítio Verde', 'demo4@safralink.com', '123456', TRUE, FALSE, 'seller', 'Sítio Verde', 'Capão Bonito - SP', 'Legumes e raízes', 'Cultivo familiar de abóboras e legumes.', '(15) 99444-4444'),
-('Família Souza', 'demo5@safralink.com', '123456', TRUE, FALSE, 'seller', 'Chácara Família Souza', 'Itapetininga - SP', 'Legumes e raízes', 'Raízes selecionadas direto da roça.', '(15) 99555-5555'),
-('Chácara do Vale', 'demo6@safralink.com', '123456', TRUE, FALSE, 'seller', 'Chácara do Vale', 'São Miguel Arcanjo - SP', 'Frutas', 'Produção especializada em morangos e frutas da estação.', '(15) 99666-6666'),
-('Maria Oliveira', 'maria@email.com', '123456', FALSE, FALSE, 'buyer', '', 'Itapetininga - SP', '', '', '(15) 99777-7777'),
+('Sítio Boa Terra', 'demo1@safralink.com', '123456', TRUE, FALSE, 'produtor rural', 'Sítio Boa Terra', 'Itapetininga - SP', 'Hortaliças', 'Hortaliças e produtos frescos colhidos diariamente.', '(15) 99111-1111'),
+('Produtor João', 'demo2@safralink.com', '123456', TRUE, FALSE, 'produtor rural', 'Sítio São João', 'Tatuí - SP', 'Cereais', 'Produção tradicional de milho verde e grãos.', '(15) 99222-2222'),
+('Horta da Ana', 'demo3@safralink.com', '123456', TRUE, FALSE, 'produtor rural', 'Horta da Ana', 'Itapetininga - SP', 'Hortaliças', 'Folhosas hidropônicas e orgânicas.', '(15) 99333-3333'),
+('Sítio Verde', 'demo4@safralink.com', '123456', TRUE, FALSE, 'produtor rural', 'Sítio Verde', 'Capão Bonito - SP', 'Legumes e raízes', 'Cultivo familiar de abóboras e legumes.', '(15) 99444-4444'),
+('Família Souza', 'demo5@safralink.com', '123456', TRUE, FALSE, 'produtor rural', 'Chácara Família Souza', 'Itapetininga - SP', 'Legumes e raízes', 'Raízes selecionadas direto da roça.', '(15) 99555-5555'),
+('Chácara do Vale', 'demo6@safralink.com', '123456', TRUE, FALSE, 'produtor rural', 'Chácara do Vale', 'São Miguel Arcanjo - SP', 'Frutas', 'Produção especializada em morangos e frutas da estação.', '(15) 99666-6666'),
+('Maria Oliveira', 'maria@email.com', '123456', FALSE, FALSE, 'comprador', '', 'Itapetininga - SP', '', '', '(15) 99777-7777'),
 ('Administradora', 'admin@safralink.com', 'admin123', FALSE, TRUE, 'admin', '', 'Itapetininga - SP', '', '', ''),
 ('Administradora 2', 'admin2@safralink.com', 'admin456', FALSE, TRUE, 'admin', '', 'Itapetininga - SP', '', '', '');
 
@@ -399,3 +399,16 @@ ON mensagens FOR UPDATE USING (true) WITH CHECK (true);
 
 CREATE POLICY "Permitir exclusão de mensagens"
 ON mensagens FOR DELETE USING (true);
+
+
+-- =====================================================
+-- ETAPA 7: ATUALIZAÇÃO DE PERFIS E CHAT EM TEMPO REAL
+-- =====================================================
+
+-- Atualiza registros já existentes no banco de 'buyer'/'seller' para 'comprador'/'produtor rural'
+UPDATE usuarios SET perfil = 'comprador' WHERE LOWER(perfil) = 'buyer';
+UPDATE usuarios SET perfil = 'produtor rural' WHERE LOWER(perfil) = 'seller';
+ALTER TABLE usuarios ALTER COLUMN perfil SET DEFAULT 'comprador';
+
+-- Ativa Realtime na tabela de mensagens para atualização instantânea do Chat
+ALTER PUBLICATION supabase_realtime ADD TABLE mensagens;

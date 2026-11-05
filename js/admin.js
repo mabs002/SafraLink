@@ -71,7 +71,7 @@
     const maps={
       seller:{'true':'Sim','false':'Não'},
       buyer:{'true':'Sim','false':'Não'},
-      role:{seller:'Vendedor',buyer:'Comprador',admin:'Administrador',user:'Usuário'},
+      role:{seller:'Produtor rural','produtor rural':'Produtor rural',buyer:'Comprador',comprador:'Comprador',admin:'Administrador',user:'Usuário'},
       documenttype:{cpf:'CPF',cnpj:'CNPJ'},
       status:{requested:'Solicitado',scheduled:'Agendado',enroute:'A caminho',delivered:'Entregue'},
       deliverymethod:{pickup:'Retirada','seller delivery':'Entrega pelo vendedor'}
@@ -144,11 +144,12 @@
         input.innerHTML='<option value=\"true\">Sim</option><option value=\"false\">Não</option>';
         input.value=String(value);
         input.dataset.boolean='true';
-      } else if (key === 'role' && ['seller','buyer','admin','user'].includes(String(value).toLowerCase())) {
+      } else if (key === 'role' && ['seller','buyer','produtor rural','comprador','admin','user'].includes(String(value).toLowerCase())) {
         input=document.createElement('select');
         input.className='select';
-        input.innerHTML='<option value=\"buyer\">Comprador</option><option value=\"seller\">Vendedor</option><option value=\"user\">Usuário</option><option value=\"admin\">Administrador</option>';
-        input.value=String(value).toLowerCase();
+        const normRole = ['seller','produtor rural'].includes(String(value).toLowerCase()) ? 'produtor rural' : ['buyer','comprador'].includes(String(value).toLowerCase()) ? 'comprador' : String(value).toLowerCase();
+        input.innerHTML='<option value="comprador">Comprador</option><option value="produtor rural">Produtor rural</option><option value="user">Usuário</option><option value="admin">Administrador</option>';
+        input.value=normRole;
         input.dataset.enum='true';
       } else {
         input=(typeof value==='object'||String(value).length>120)?document.createElement('textarea'):document.createElement('input');
@@ -169,9 +170,9 @@
         if (duplicated) { alert('Já existe outro usuário com este e-mail.'); return; }
         updated.email = newEmail;
         if (updated.seller !== original.seller) {
-          updated.role = updated.seller ? 'seller' : 'buyer';
+          updated.role = updated.seller ? 'produtor rural' : 'comprador';
         } else if (updated.role !== original.role) {
-          updated.seller = String(updated.role || '').toLowerCase() === 'seller';
+          updated.seller = ['seller', 'produtor rural', 'vendedor'].includes(String(updated.role || '').toLowerCase());
           updated.admin = String(updated.role || '').toLowerCase() === 'admin';
         }
       }
