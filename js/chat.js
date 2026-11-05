@@ -24,14 +24,25 @@
     try { const value = JSON.parse(localStorage.getItem(key) || 'null'); return value == null ? fallback : value; }
     catch (_) { return fallback; }
   };
-  const write = (key, value) => localStorage.setItem(key, JSON.stringify(value));
+  const write = (key, value) => {
+    const json = JSON.stringify(value);
+    if (typeof window.safeSetLocalStorage === 'function') {
+      window.safeSetLocalStorage(key, json);
+    } else {
+      try { localStorage.setItem(key, json); } catch (_) {}
+    }
+  };
   // Recupera a sessão e, se necessário, completa os dados usando o cadastro salvo.
   // Isso evita que o comprador apareça como "Usuário" depois do login.
   const currentUser = () => {
+    if (typeof window.getUser === 'function') {
+      const u = window.getUser();
+      if (u) return u;
+    }
     const session = read(SESSION_KEY, null);
     if (!session) return null;
 
-    const users = read(USERS_KEY, []);
+    const users = typeof window.getUsers === 'function' ? window.getUsers() : read(USERS_KEY, []);
     const sessionEmail = emailOf(session);
     const registered = Array.isArray(users)
       ? users.find(u => emailOf(u) === sessionEmail)
@@ -119,13 +130,31 @@
   function setupUser() {
     const me = currentUser();
     if (!me) { window.location.href = 'index.html'; return false; }
+    const isSeller = isSellerAccount(me);
     const nav = document.querySelector('.sidebar .nav');
-    if (nav && !nav.querySelector('a[href="perfil.html"]')) {
-      nav.insertAdjacentHTML(
-        'beforeend',
-        `<a href="perfil.html" data-page="perfil"><span class="nav-icon">👤</span><span>Meu perfil</span></a>`
-      );
+    if (nav) {
+      if (!nav.querySelector('a[href="sobras.html"]')) {
+        const chatNav = nav.querySelector('a[href="chat.html"]');
+        const sobrasHtml = `<a href="sobras.html" data-page="sobras" data-seller-only><span class="nav-icon">♻️</span><span>Sobras</span></a>`;
+        if (chatNav) {
+          chatNav.insertAdjacentHTML('beforebegin', sobrasHtml);
+        } else {
+          nav.insertAdjacentHTML('beforeend', sobrasHtml);
+        }
+      }
+      if (!nav.querySelector('a[href="perfil.html"]')) {
+        nav.insertAdjacentHTML(
+          'beforeend',
+          `<a href="perfil.html" data-page="perfil"><span class="nav-icon">👤</span><span>Meu perfil</span></a>`
+        );
+      }
     }
+    document.querySelectorAll('[data-seller-only]').forEach(el => {
+      el.style.display = isSeller ? '' : 'none';
+    });
+    document.querySelectorAll('[data-buyer-only]').forEach(el => {
+      el.style.display = isSeller ? 'none' : '';
+    });
     const avatarEl = $('#sidebar-initials');
     if (avatarEl) {
       if (me.photoData) {

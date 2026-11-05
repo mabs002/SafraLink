@@ -58,13 +58,14 @@ button {
   width:250px;
   background:var(--green-900);
   color:#fff;
-  padding:26px 16px;
+  padding:22px 16px;
   position:fixed;
   left:0;
   top:0;
   bottom:0;
   display:flex;
   flex-direction:column;
+  overflow-y:auto;
   z-index:20
 }
 
@@ -72,7 +73,7 @@ button {
   display:flex;
   align-items:center;
   gap:10px;
-  padding:0 12px 28px;
+  padding:0 12px 22px;
   font-family:'Nunito',sans-serif;
   font-size:24px;
   font-weight:800
@@ -92,14 +93,14 @@ button {
 .nav {
   display:flex;
   flex-direction:column;
-  gap:5px
+  gap:4px
 }
 
 .nav a {
   display:flex;
   align-items:center;
   gap:12px;
-  padding:12px 13px;
+  padding:10px 13px;
   border-radius:12px;
   color:#dce9dd;
   font-size:14px;

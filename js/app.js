@@ -40,8 +40,103 @@ window.supabaseClient = supabaseClient;
    ========================================================= */
 
 let isApplyingRemoteSync = false;
+let hasRemoteSynced = false;
 const pendingSupabaseOps = [];
 const dbSnapshots = {};
+
+function isSellerUser(u) {
+  if (!u || u.admin === true) return false;
+  const r = String(u.role || u.perfil || u.tipo || '').trim().toLowerCase();
+  if (r === 'admin' || r === 'administrador') return false;
+  return !!(
+    u.seller === true ||
+    u.vendedor === true ||
+    r === 'seller' ||
+    r === 'produtor rural' ||
+    r === 'vendedor' ||
+    r === 'produtor'
+  );
+}
+window.isSellerUser = isSellerUser;
+
+function compressImageDataUrl(dataUrl, maxDim = 400, quality = 0.82) {
+  return new Promise(resolve => {
+    if (!dataUrl || typeof dataUrl !== 'string' || !dataUrl.startsWith('data:image/')) {
+      resolve(dataUrl || '');
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      try {
+        let w = img.width || maxDim;
+        let h = img.height || maxDim;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+          else { w = Math.round((w * maxDim) / h); h = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      } catch (_) {
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+window.compressImageDataUrl = compressImageDataUrl;
+
+function safeSetLocalStorage(key, value) {
+  const serialized = typeof value === 'string' ? value : JSON.stringify(value);
+  try {
+    localStorage.setItem(key, serialized);
+    return true;
+  } catch (_) {
+    // Se o localStorage atingiu o limite de 5 MB (comum ao compartilhar domínio no GitHub Pages),
+    // liberamos fotos duplicadas na sessão e chaves antigas para garantir que nada quebre.
+    try {
+      const rawUser = localStorage.getItem('safralink_user');
+      if (rawUser && key !== 'safralink_user') {
+        const parsedUser = JSON.parse(rawUser);
+        if (parsedUser && parsedUser.photoData && parsedUser.photoData.length > 2000) {
+          const slimUser = { ...parsedUser };
+          delete slimUser.photoData;
+          localStorage.setItem('safralink_user', JSON.stringify(slimUser));
+        }
+      }
+      const rawInterests = localStorage.getItem('safralink_product_interests');
+      if (rawInterests && key !== 'safralink_product_interests') {
+        const parsedInterests = JSON.parse(rawInterests);
+        if (Array.isArray(parsedInterests)) {
+          const slimInterests = parsedInterests.map(i => ({ ...i, photoData: '' }));
+          localStorage.setItem('safralink_product_interests', JSON.stringify(slimInterests));
+        }
+      }
+      localStorage.setItem(key, serialized);
+      return true;
+    } catch (__) {
+      try {
+        if (key === 'safralink_user' && typeof value === 'object' && value) {
+          const slim = { ...value };
+          delete slim.photoData;
+          localStorage.setItem(key, JSON.stringify(slim));
+          return true;
+        }
+        if (Array.isArray(value)) {
+          const slimList = value.map(item => (item && typeof item === 'object' && item.photoData ? { ...item, photoData: '' } : item));
+          localStorage.setItem(key, JSON.stringify(slimList));
+          return true;
+        }
+      } catch (___) {}
+      return false;
+    }
+  }
+}
+window.safeSetLocalStorage = safeSetLocalStorage;
 
 function trackSupabaseOp(promise) {
   if (!promise || typeof promise.then !== 'function') return promise;
@@ -405,7 +500,7 @@ function syncStorageKeyWithSupabase(storageKey, nextList) {
             .then(({ data }) => {
               if (data && data.id) {
                 item.id = data.id;
-                localStorage.setItem(storageKey, JSON.stringify(currentList));
+                safeSetLocalStorage(storageKey, currentList);
               }
             })
         );
@@ -419,7 +514,7 @@ function syncStorageKeyWithSupabase(storageKey, nextList) {
             .then(({ data }) => {
               if (data && data.id) {
                 item.id = data.id;
-                localStorage.setItem(storageKey, JSON.stringify(currentList));
+                safeSetLocalStorage(storageKey, currentList);
               }
             })
         );
@@ -435,7 +530,7 @@ function syncStorageKeyWithSupabase(storageKey, nextList) {
             .then(({ data }) => {
               if (data && data.id) {
                 item.id = data.id;
-                localStorage.setItem(storageKey, JSON.stringify(currentList));
+                safeSetLocalStorage(storageKey, currentList);
               }
             })
         );
@@ -471,6 +566,7 @@ async function syncFromSupabase() {
     ]);
 
     isApplyingRemoteSync = true;
+    hasRemoteSynced = true;
 
     if (!usersRes.error && Array.isArray(usersRes.data)) {
       // Migra automaticamente registros no banco que ainda estejam com 'buyer' ou 'seller' para português
@@ -483,17 +579,25 @@ async function syncFromSupabase() {
             supabaseClient.from('usuarios').update({ perfil: novoPerfil }).eq('id', Number(row.id)).then(() => {});
           }
         }
+        // Otimiza fotos de perfil antigas muito pesadas no banco para não estourar o localStorage
+        if (row.foto_perfil && row.foto_perfil.length > 80000 && validDbId(row.id)) {
+          compressImageDataUrl(row.foto_perfil, 360, 0.8).then(compressed => {
+            if (compressed && compressed.length < row.foto_perfil.length) {
+              supabaseClient.from('usuarios').update({ foto_perfil: compressed }).eq('id', Number(row.id)).then(() => {});
+            }
+          });
+        }
       });
 
       const mappedUsers = usersRes.data.map(fromDbUser);
       dbSnapshots.safralink_users = mappedUsers.map(u => ({ ...u }));
-      try { localStorage.setItem('safralink_users', JSON.stringify(mappedUsers)); } catch (_) {}
+      safeSetLocalStorage('safralink_users', mappedUsers);
 
       const session = JSON.parse(localStorage.getItem('safralink_user') || 'null');
       if (session && session.email) {
-        const freshUser = mappedUsers.find(u => u.email === String(session.email).toLowerCase());
+        const freshUser = mappedUsers.find(u => u.email === String(session.email).trim().toLowerCase());
         if (freshUser) {
-          if (session.seller === true && !freshUser.seller) {
+          if (isSellerUser(session) && !freshUser.seller) {
             const upgraded = {
               ...freshUser,
               ...session,
@@ -501,12 +605,12 @@ async function syncFromSupabase() {
               seller: true,
               role: 'produtor rural'
             };
-            try { localStorage.setItem('safralink_user', JSON.stringify(upgraded)); } catch (_) {}
+            safeSetLocalStorage('safralink_user', upgraded);
             const idx = mappedUsers.findIndex(u => u.email === freshUser.email);
             if (idx >= 0) {
               mappedUsers[idx] = upgraded;
               dbSnapshots.safralink_users = mappedUsers.map(u => ({ ...u }));
-              try { localStorage.setItem('safralink_users', JSON.stringify(mappedUsers)); } catch (_) {}
+              safeSetLocalStorage('safralink_users', mappedUsers);
             }
             trackSupabaseOp(
               supabaseClient
@@ -519,9 +623,11 @@ async function syncFromSupabase() {
             const mergedSession = {
               ...session,
               ...freshUser,
+              seller: isSellerUser(freshUser),
+              role: freshUser.admin ? 'admin' : isSellerUser(freshUser) ? 'produtor rural' : 'comprador',
               photoData: freshUser.photoData || session.photoData || ''
             };
-            try { localStorage.setItem('safralink_user', JSON.stringify(mergedSession)); } catch (_) {}
+            safeSetLocalStorage('safralink_user', mergedSession);
           }
         }
       }
@@ -529,38 +635,38 @@ async function syncFromSupabase() {
 
     if (!productsRes.error && Array.isArray(productsRes.data)) {
       const mappedProducts = productsRes.data.map(fromDbProduct);
-      localStorage.setItem('safralink_products', JSON.stringify(mappedProducts));
       dbSnapshots.safralink_products = mappedProducts.map(p => ({ ...p }));
+      safeSetLocalStorage('safralink_products', mappedProducts);
     }
 
     if (!harvestsRes.error && Array.isArray(harvestsRes.data)) {
       const mappedHarvests = harvestsRes.data.map(fromDbHarvest);
-      localStorage.setItem('safralink_harvests', JSON.stringify(mappedHarvests));
       dbSnapshots.safralink_harvests = mappedHarvests.map(h => ({ ...h }));
+      safeSetLocalStorage('safralink_harvests', mappedHarvests);
     }
 
     if (!ordersRes.error && Array.isArray(ordersRes.data)) {
       const mappedOrders = ordersRes.data.map(fromDbOrder);
-      localStorage.setItem('safralink_orders', JSON.stringify(mappedOrders));
       dbSnapshots.safralink_orders = mappedOrders.map(o => ({ ...o }));
+      safeSetLocalStorage('safralink_orders', mappedOrders);
     }
 
     if (!transportsRes.error && Array.isArray(transportsRes.data)) {
       const mappedTransports = transportsRes.data.map(fromDbTransport);
-      localStorage.setItem('safralink_transports', JSON.stringify(mappedTransports));
       dbSnapshots.safralink_transports = mappedTransports.map(t => ({ ...t }));
+      safeSetLocalStorage('safralink_transports', mappedTransports);
     }
 
     if (!leftoversRes.error && Array.isArray(leftoversRes.data)) {
       const mappedLeftovers = leftoversRes.data.map(fromDbLeftover);
-      localStorage.setItem('safralink_leftovers', JSON.stringify(mappedLeftovers));
       dbSnapshots.safralink_leftovers = mappedLeftovers.map(l => ({ ...l }));
+      safeSetLocalStorage('safralink_leftovers', mappedLeftovers);
     }
 
     if (!interestsRes.error && Array.isArray(interestsRes.data)) {
       const mappedInterests = interestsRes.data.map(fromDbInterest);
-      localStorage.setItem('safralink_product_interests', JSON.stringify(mappedInterests));
       dbSnapshots.safralink_product_interests = mappedInterests.map(i => ({ ...i }));
+      safeSetLocalStorage('safralink_product_interests', mappedInterests);
     }
 
     if (!messagesRes.error && Array.isArray(messagesRes.data)) {
@@ -809,12 +915,29 @@ function getUser() {
     const session = JSON.parse(localStorage.getItem('safralink_user') || 'null');
     if (!session) return null;
     const users = getUsers();
-    const current = users.find(item =>
-      String(item.email || '').toLowerCase() === String(session.email || '').toLowerCase() ||
-      (item.id != null && session.id != null && String(item.id) === String(session.id))
-    );
-    if (!current) return session;
-    const merged = { ...session, ...current };
+    const sessionEmail = String(session.email || '').trim().toLowerCase();
+    const current = users.find(item => {
+      const itemEmail = String(item.email || '').trim().toLowerCase();
+      if (sessionEmail && itemEmail) {
+        return itemEmail === sessionEmail;
+      }
+      return !sessionEmail && !itemEmail && item.id != null && session.id != null && String(item.id) === String(session.id);
+    });
+    if (!current) {
+      const isSeller = isSellerUser(session);
+      return {
+        ...session,
+        seller: isSeller,
+        role: session.admin ? 'admin' : isSeller ? 'produtor rural' : 'comprador'
+      };
+    }
+    const isSeller = isSellerUser(current) || isSellerUser(session);
+    const merged = {
+      ...session,
+      ...current,
+      seller: isSeller,
+      role: (current.admin || session.admin) ? 'admin' : isSeller ? 'produtor rural' : 'comprador'
+    };
     if (!merged.photoData) {
       merged.photoData = current.photoData || session.photoData || '';
     }
@@ -830,12 +953,28 @@ function getUsers() {
 
   try {
 
+    if (hasRemoteSynced && Array.isArray(dbSnapshots.safralink_users) && dbSnapshots.safralink_users.length) {
+      return dbSnapshots.safralink_users.map(u => ({ ...u }));
+    }
+
     const saved =
       localStorage.getItem('safralink_users');
 
     if (saved) {
       const list = JSON.parse(saved);
-      if (Array.isArray(list) && list.length) return list;
+      if (Array.isArray(list) && list.length) {
+        if (Array.isArray(dbSnapshots.safralink_users) && dbSnapshots.safralink_users.length) {
+          const byEmail = {};
+          dbSnapshots.safralink_users.forEach(u => {
+            byEmail[String(u.email || '').trim().toLowerCase()] = u;
+          });
+          return list.map(u => {
+            const snap = byEmail[String(u.email || '').trim().toLowerCase()];
+            return snap ? { ...u, ...snap, photoData: snap.photoData || u.photoData || '' } : u;
+          });
+        }
+        return list;
+      }
     }
 
     if (Array.isArray(dbSnapshots.safralink_users) && dbSnapshots.safralink_users.length) {
@@ -862,13 +1001,8 @@ function getUsers() {
 function saveUsers(users) {
 
   const clean = Array.isArray(users) ? users : [];
-  try {
-    localStorage.setItem(
-      'safralink_users',
-      JSON.stringify(clean)
-    );
-  } catch (_) {}
   syncStorageKeyWithSupabase('safralink_users', clean);
+  safeSetLocalStorage('safralink_users', clean);
 
 }
 
@@ -878,12 +1012,12 @@ function saveUsers(users) {
 */
 function saveUser(user) {
 
-  try {
-    localStorage.setItem(
-      'safralink_user',
-      JSON.stringify(user)
-    );
-  } catch (_) {}
+  if (user && typeof user === 'object') {
+    const isSeller = isSellerUser(user);
+    user.seller = isSeller;
+    user.role = user.admin ? 'admin' : isSeller ? 'produtor rural' : 'comprador';
+  }
+  safeSetLocalStorage('safralink_user', user);
   if (supabaseClient && !isApplyingRemoteSync && user && user.email) {
     trackSupabaseOp(
       supabaseClient
@@ -960,7 +1094,7 @@ function requireSeller() {
   const user = getUser();
 
 
-  if (!user || !user.seller) {
+  if (!user || !isSellerUser(user)) {
 
     location.href = 'inicio.html';
 
@@ -981,6 +1115,7 @@ function requireSeller() {
 function setupShell() {
 
   const user = getUser();
+  const isSeller = isSellerUser(user);
 
 
   /*
@@ -991,19 +1126,44 @@ function setupShell() {
 
 
   /*
-     Garante que o acesso ao perfil fique disponível
-     para os usuários também em telas menores.
-     Ajuste exclusivo de responsividade/acesso ao perfil.
+     Garante que todos os itens do menu (incluindo Sobras, Chat e Meu perfil)
+     estejam sempre presentes na barra lateral em todas as páginas.
   */
   const nav = document.querySelector('.sidebar .nav');
-  if (nav && user && !nav.querySelector('a[href="perfil.html"]')) {
-    nav.insertAdjacentHTML(
-      'beforeend',
-      `<a href="perfil.html" data-page="perfil">
-        <span class="nav-icon">👤</span>
-        <span>Meu perfil</span>
-      </a>`
-    );
+  if (nav && user) {
+    if (!nav.querySelector('a[href="sobras.html"]')) {
+      const chatLink = nav.querySelector('a[href="chat.html"]');
+      const sobrasHtml = `<a href="sobras.html" data-page="sobras" data-seller-only>
+        <span class="nav-icon">♻</span>
+        <span>Sobras</span>
+      </a>`;
+      if (chatLink) {
+        chatLink.insertAdjacentHTML('beforebegin', sobrasHtml);
+      } else {
+        nav.insertAdjacentHTML('beforeend', sobrasHtml);
+      }
+    }
+    if (!nav.querySelector('a[href="chat.html"]')) {
+      const perfilLink = nav.querySelector('a[href="perfil.html"]');
+      const chatHtml = `<a href="chat.html" data-page="chat">
+        <span class="nav-icon chat-nav-icon">💬<span class="chat-notification-dot" aria-label="Nova mensagem" hidden></span></span>
+        <span>Chat</span>
+      </a>`;
+      if (perfilLink) {
+        perfilLink.insertAdjacentHTML('beforebegin', chatHtml);
+      } else {
+        nav.insertAdjacentHTML('beforeend', chatHtml);
+      }
+    }
+    if (!nav.querySelector('a[href="perfil.html"]')) {
+      nav.insertAdjacentHTML(
+        'beforeend',
+        `<a href="perfil.html" data-page="perfil">
+          <span class="nav-icon">👤</span>
+          <span>Meu perfil</span>
+        </a>`
+      );
+    }
   }
 
 
@@ -1058,7 +1218,7 @@ function setupShell() {
 
               <small data-user-role>
                 ${
-                  user.seller
+                  isSeller
                     ? 'Produtor rural'
                     : 'Comprador'
                 }
@@ -1146,7 +1306,7 @@ function setupShell() {
     .forEach(element => {
 
       element.textContent =
-        user?.seller
+        isSeller
           ? 'Produtor rural'
           : 'Comprador';
 
@@ -1185,7 +1345,7 @@ function setupShell() {
     .forEach(element => {
 
       element.style.display =
-        user?.seller
+        isSeller
           ? ''
           : 'none';
 
@@ -1201,7 +1361,7 @@ function setupShell() {
     .forEach(element => {
 
       element.style.display =
-        user?.seller
+        isSeller
           ? 'none'
           : '';
 
@@ -1216,14 +1376,13 @@ function setupShell() {
 
 
   document
-    .querySelectorAll('.nav a[data-page]')
+    .querySelectorAll('.nav a')
     .forEach(link => {
-
-      link.classList.toggle(
-        'active',
-        link.dataset.page === page
-      );
-
+      const hrefPage = String(link.getAttribute('href') || '').replace(/\.html.*$/i, '');
+      const linkPage = link.dataset.page || hrefPage;
+      if (page && linkPage) {
+        link.classList.toggle('active', linkPage === page);
+      }
     });
 
 }
@@ -1568,6 +1727,10 @@ function products() {
 
   try {
 
+    if (hasRemoteSynced && Array.isArray(dbSnapshots.safralink_products)) {
+      return dbSnapshots.safralink_products.map(p => ({ ...p }));
+    }
+
     const saved =
       localStorage.getItem(
         'safralink_products'
@@ -1579,13 +1742,13 @@ function products() {
        usamos eles.
     */
     if (saved) {
-
-      return JSON.parse(
-        saved
-      );
-
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed;
     }
 
+    if (Array.isArray(dbSnapshots.safralink_products) && dbSnapshots.safralink_products.length) {
+      return dbSnapshots.safralink_products.map(p => ({ ...p }));
+    }
 
     /*
        Caso ainda não exista nenhum,
@@ -1595,7 +1758,9 @@ function products() {
 
   } catch (error) {
 
-    return demoProducts;
+    return Array.isArray(dbSnapshots.safralink_products) && dbSnapshots.safralink_products.length
+      ? dbSnapshots.safralink_products.map(p => ({ ...p }))
+      : demoProducts;
 
   }
 
@@ -1607,11 +1772,8 @@ function products() {
 */
 function saveProducts(list) {
 
-  localStorage.setItem(
-    'safralink_products',
-    JSON.stringify(list)
-  );
   syncStorageKeyWithSupabase('safralink_products', list);
+  safeSetLocalStorage('safralink_products', list);
 
 }
 
@@ -1974,7 +2136,7 @@ function renderInterestDrawer(){
       let all = [];
       try { all = JSON.parse(localStorage.getItem('safralink_product_interests') || '[]'); } catch (_) { all = []; }
       all = Array.isArray(all) ? all.filter(item => String(item.id) !== id) : [];
-      localStorage.setItem('safralink_product_interests', JSON.stringify(all));
+      safeSetLocalStorage('safralink_product_interests', JSON.stringify(all));
       syncStorageKeyWithSupabase('safralink_product_interests', all);
       renderInterestDrawer();
       toast('Interesse removido.');
@@ -2248,7 +2410,7 @@ function renderProducts(
           photoData: product.photoData || '',
           createdAt: new Date().toISOString()
         });
-        localStorage.setItem(key, JSON.stringify(list));
+        safeSetLocalStorage(key, JSON.stringify(list));
         syncStorageKeyWithSupabase(key, list);
         renderInterestDrawer();
         toast('Produto adicionado à sua lista de interesses.');
@@ -2348,15 +2510,22 @@ function orders() {
 
   try {
 
-    return JSON.parse(
+    if (hasRemoteSynced && Array.isArray(dbSnapshots.safralink_orders)) {
+      return dbSnapshots.safralink_orders.map(o => ({ ...o }));
+    }
+
+    const parsed = JSON.parse(
       localStorage.getItem(
         'safralink_orders'
       ) || '[]'
     );
+    return Array.isArray(parsed) ? parsed : [];
 
   } catch (error) {
 
-    return [];
+    return Array.isArray(dbSnapshots.safralink_orders)
+      ? dbSnapshots.safralink_orders.map(o => ({ ...o }))
+      : [];
 
   }
 
@@ -2368,11 +2537,8 @@ function orders() {
 */
 function saveOrders(items) {
 
-  localStorage.setItem(
-    'safralink_orders',
-    JSON.stringify(items)
-  );
   syncStorageKeyWithSupabase('safralink_orders', items);
+  safeSetLocalStorage('safralink_orders', items);
 
 }
 
@@ -2515,15 +2681,22 @@ function harvests() {
 
   try {
 
-    return JSON.parse(
+    if (hasRemoteSynced && Array.isArray(dbSnapshots.safralink_harvests)) {
+      return dbSnapshots.safralink_harvests.map(h => ({ ...h }));
+    }
+
+    const parsed = JSON.parse(
       localStorage.getItem(
         'safralink_harvests'
       ) || '[]'
     );
+    return Array.isArray(parsed) ? parsed : [];
 
   } catch (error) {
 
-    return [];
+    return Array.isArray(dbSnapshots.safralink_harvests)
+      ? dbSnapshots.safralink_harvests.map(h => ({ ...h }))
+      : [];
 
   }
 
@@ -2535,11 +2708,8 @@ function harvests() {
 */
 function saveHarvests(items) {
 
-  localStorage.setItem(
-    'safralink_harvests',
-    JSON.stringify(items)
-  );
   syncStorageKeyWithSupabase('safralink_harvests', items);
+  safeSetLocalStorage('safralink_harvests', items);
 
 }
 
@@ -2934,15 +3104,22 @@ function transports() {
 
   try {
 
-    return JSON.parse(
+    if (hasRemoteSynced && Array.isArray(dbSnapshots.safralink_transports)) {
+      return dbSnapshots.safralink_transports.map(t => ({ ...t }));
+    }
+
+    const parsed = JSON.parse(
       localStorage.getItem(
         'safralink_transports'
       ) || '[]'
     );
+    return Array.isArray(parsed) ? parsed : [];
 
   } catch (error) {
 
-    return [];
+    return Array.isArray(dbSnapshots.safralink_transports)
+      ? dbSnapshots.safralink_transports.map(t => ({ ...t }))
+      : [];
 
   }
 
@@ -2954,11 +3131,8 @@ function transports() {
 */
 function saveTransports(items) {
 
-  localStorage.setItem(
-    'safralink_transports',
-    JSON.stringify(items)
-  );
   syncStorageKeyWithSupabase('safralink_transports', items);
+  safeSetLocalStorage('safralink_transports', items);
 
 }
 
@@ -3023,24 +3197,32 @@ function leftovers() {
     return [];
   }
 
+  const myEmail = String(user.email || '').trim().toLowerCase();
+
   try {
 
-    const all =
-      JSON.parse(
-        localStorage.getItem(
-          'safralink_leftovers'
-        ) || '[]'
-      );
+    let all = [];
+    if (hasRemoteSynced && Array.isArray(dbSnapshots.safralink_leftovers)) {
+      all = dbSnapshots.safralink_leftovers.map(l => ({ ...l }));
+    } else {
+      all = JSON.parse(localStorage.getItem('safralink_leftovers') || '[]');
+      if ((!Array.isArray(all) || !all.length) && Array.isArray(dbSnapshots.safralink_leftovers)) {
+        all = dbSnapshots.safralink_leftovers.map(l => ({ ...l }));
+      }
+    }
 
-    return all.filter(
+    return (Array.isArray(all) ? all : []).filter(
       item =>
-        item.sellerEmail ===
-        user.email
+        String(item.sellerEmail || '').trim().toLowerCase() === myEmail
     );
 
   } catch (error) {
 
-    return [];
+    return Array.isArray(dbSnapshots.safralink_leftovers)
+      ? dbSnapshots.safralink_leftovers.filter(
+          item => String(item.sellerEmail || '').trim().toLowerCase() === myEmail
+        )
+      : [];
 
   }
 
@@ -3059,16 +3241,17 @@ function saveLeftovers(items) {
     return;
   }
 
+  const myEmail = String(user.email || '').trim().toLowerCase();
   let all = [];
 
   try {
 
-    all =
-      JSON.parse(
-        localStorage.getItem(
-          'safralink_leftovers'
-        ) || '[]'
-      );
+    if (hasRemoteSynced && Array.isArray(dbSnapshots.safralink_leftovers)) {
+      all = dbSnapshots.safralink_leftovers.map(l => ({ ...l }));
+    } else {
+      all = JSON.parse(localStorage.getItem('safralink_leftovers') || '[]');
+      if (!Array.isArray(all)) all = [];
+    }
 
   } catch (error) {
 
@@ -3082,8 +3265,7 @@ function saveLeftovers(items) {
   all =
     all.filter(
       item =>
-        item.sellerEmail !==
-        user.email
+        String(item.sellerEmail || '').trim().toLowerCase() !== myEmail
     );
 
   /*
@@ -3092,16 +3274,12 @@ function saveLeftovers(items) {
   all.push(
     ...items.map(item => ({
       ...item,
-      sellerEmail:
-        user.email
+      sellerEmail: myEmail
     }))
   );
 
-  localStorage.setItem(
-    'safralink_leftovers',
-    JSON.stringify(all)
-  );
   syncStorageKeyWithSupabase('safralink_leftovers', all);
+  safeSetLocalStorage('safralink_leftovers', all);
 
 }
 
